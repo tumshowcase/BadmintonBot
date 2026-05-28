@@ -14,9 +14,9 @@ def init_db():
 
     conn = get_conn()
 
-cur = conn.cursor()
+    cur = conn.cursor()
 
-cur.execute("""
+    cur.execute("""
 
 CREATE TABLE IF NOT EXISTS balances(
 
@@ -26,11 +26,11 @@ CREATE TABLE IF NOT EXISTS balances(
 
     balance INTEGER DEFAULT 0
 
-)
+    )
 
-""")
+    """)
 
-cur.execute("""
+    cur.execute("""
 
 CREATE TABLE IF NOT EXISTS rounds(
 
@@ -54,15 +54,15 @@ CREATE TABLE IF NOT EXISTS rounds(
 
     comment TEXT
 
-)
+    )
 
-""")
+    """)
 
-conn.commit()
+    conn.commit()
 
-cur.close()
+    cur.close()
 
-conn.close()
+    conn.close()
 
 print("database ready")
 
@@ -100,9 +100,9 @@ amount
 
     conn = get_conn()
 
-cur = conn.cursor()
+    cur = conn.cursor()
 
-cur.execute("""
+    cur.execute("""
 
 INSERT INTO balances(
 
@@ -126,11 +126,11 @@ balance = balances.balance + %s
 
 """,(name, amount, amount))
 
-conn.commit()
+    conn.commit()
 
-cur.close()
+    cur.close()
 
-conn.close()
+    conn.close()
 
 
 def reset_all_balances():
@@ -138,21 +138,21 @@ def reset_all_balances():
 
     conn = get_conn()
 
-cur = conn.cursor()
+    cur = conn.cursor()
 
-cur.execute("""
+    cur.execute("""
 
-UPDATE balances
+    UPDATE balances
 
-SET balance = 0
+    SET balance = 0
 
-""")
+    """)
 
-conn.commit()
+    conn.commit()
 
-cur.close()
+    cur.close()
 
-conn.close()
+    conn.close()
 
 
 def save_round(
@@ -166,12 +166,11 @@ result,
 comment
 ):
 
-
     conn = get_conn()
 
-cur = conn.cursor()
+    cur = conn.cursor()
 
-cur.execute("""
+    cur.execute("""
 
 INSERT INTO rounds(
 
@@ -219,11 +218,11 @@ VALUES(
 
 ))
 
-conn.commit()
+    conn.commit()
 
-cur.close()
+    cur.close()
 
-conn.close()
+    conn.close()
 
 def get_latest_round():
 
