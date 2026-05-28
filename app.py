@@ -399,23 +399,57 @@ def handle_message(event):
 
             balances = get_all_balances()
 
-            balance_text = ""
-
-            for name, balance in balances:
-                balance_text += f"{name}: {balance} บาท\n"
-
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
 
+            latest_round_text = ""
+
+            for player, amount in round_result.items():
+
+                icon = "🟢" if amount >= 0 else "🔴"
+
+                latest_round_text += (
+                    f"{player.ljust(8)} "
+                    f"{icon} {amount:+}\n"
+                )
+
+            balance_text = ""
+
+            rank_icons = [
+                "🥇",
+                "🥈",
+                "🥉",
+                "4️⃣",
+                "5️⃣",
+                "6️⃣",
+                "7️⃣",
+                "8️⃣"
+            ]
+
+            for i, (name, balance) in enumerate(balances):
+
+                icon = "🟢" if balance >= 0 else "🔴"
+
+                rank = (
+                    rank_icons[i]
+                    if i < len(rank_icons)
+                    else f"{i+1}."
+                )
+
+                balance_text += (
+                    f"{rank} "
+                    f"{name.ljust(8)} "
+                    f"{icon} {balance:+}\n"
+                )
+
             reply_text = (
-                "✅ คิดเงินเรียบร้อย\n\n"
+                "✅ บันทึกรอบเรียบร้อย\n\n"
                 f"📅 {now}\n\n"
-                "💰 ผลการคำนวณ\n"
-                f"{chr(10).join(result_lines)}\n\n"
-                "🧾 ยอดสะสมทั้งหมด\n"
+                "📊 รอบล่าสุด\n\n"
+                f"{latest_round_text}\n"
+                "━━━━━━━━━━━━━━\n\n"
+                "📈 ยอดสะสมทั้งหมด\n\n"
                 f"{balance_text}"
             )
-
-            user_sessions[user_id] = {}
 
     else:
 
