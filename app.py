@@ -450,6 +450,7 @@ def handle_message(event):
                 "📈 ยอดสะสมทั้งหมด\n\n"
                 f"{balance_text}"
             )
+            user_sessions[user_id] = {}
 
     else:
 
