@@ -184,33 +184,26 @@ share,
 result,
 comment
 ):
-
     with closing(get_conn()) as conn:
         with conn:
             with conn.cursor() as cur:
                 for name, amount in result.items():
+                    # --- เพิ่มเงื่อนไขบรรทัดนี้: ถ้าชื่อเริ่มด้วย G ให้ข้ามไปเลย ---
+                    if name.upper().startswith("G"):
+                        continue
+                    # --------------------------------------------------
                     cur.execute("""
-
 INSERT INTO balances(
-
     name,
     balance
-
 )
-
 VALUES(
-
     %s,
     %s
-
 )
-
 ON CONFLICT(name)
-
 DO UPDATE SET
-
 balance = balances.balance + %s
-
 """,(name, amount, amount))
 
                 cur.execute("""

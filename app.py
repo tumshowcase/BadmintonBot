@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 
 from flask import Flask, request
 
@@ -20,6 +21,8 @@ from linebot.v3.webhooks import (
 from datetime import datetime, timedelta
 
 from database import *
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -270,41 +273,38 @@ def handle_message(event):
                 )
 
     elif session.get("step") == "choose_players":
-
         try:
-
             numbers = text.split()
-
-            indexes = [int(n) for n in numbers]
-
             selected_players = []
 
-            for i in indexes:
-
-                if i < 1 or i > len(default_members):
+            for n in numbers:
+                # ถ้าพิมพ์ G นำหน้า (เช่น G1, g2) ให้เก็บชื่อนั้นไปเลย
+                if n.upper().startswith("G"):
+                    selected_players.append(n.upper())
+                # ถ้าเป็นตัวเลข ให้ไปดึงชื่อจาก default_members
+                elif n.isdigit():
+                    i = int(n)
+                    if i < 1 or i > len(default_members):
+                        raise Exception()
+                    selected_players.append(default_members[i - 1])
+                else:
                     raise Exception()
 
-                selected_players.append(default_members[i - 1])
-
             if len(selected_players) != session["player_count"]:
-
                 reply_text = (
-                    f"กรุณาเลือก {session['player_count']} คน"
+                    f"กรุณาเลือกให้ครบ {session['player_count']} คน "
+                    f"(คุณระบุมา {len(selected_players)} คน)"
                 )
-
             else:
-
                 session["players"] = selected_players
-
                 session["step"] = "court_cost"
-
                 reply_text = "🏸 ค่าคอร์ท (บาท)"
 
         except:
-
             reply_text = (
-                "กรุณาเลือกเลขให้ถูกต้อง\n\n"
-                f"{build_player_list(default_members)}"
+                "กรุณาพิมพ์เลขผู้เล่น หรือพิมพ์ G สำหรับขาจรให้ถูกต้อง\n\n"
+                f"{build_player_list(default_members)}\n\n"
+                "เช่น: 1 2 3 G1"
             )
 
     elif session.get("step") == "court_cost":
