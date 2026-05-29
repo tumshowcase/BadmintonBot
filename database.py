@@ -1,8 +1,14 @@
 import os
 import psycopg2
 import json
+from contextlib import closing
+from psycopg2.extras import Json
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+def json_value(value):
+    return Json(value, dumps=lambda obj: json.dumps(obj, ensure_ascii=False))
 
 def get_conn():
 
@@ -12,11 +18,10 @@ def get_conn():
 def init_db():
 
 
-    conn = get_conn()
-
-    cur = conn.cursor()
-
-    cur.execute("""
+    with closing(get_conn()) as conn:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
 
 CREATE TABLE IF NOT EXISTS balances(
 
@@ -30,7 +35,7 @@ CREATE TABLE IF NOT EXISTS balances(
 
     """)
 
-    cur.execute("""
+                cur.execute("""
 
 CREATE TABLE IF NOT EXISTS rounds(
 
@@ -58,13 +63,31 @@ CREATE TABLE IF NOT EXISTS rounds(
 
     """)
 
-    conn.commit()
+                migrations = [
+                    "ALTER TABLE balances ADD COLUMN IF NOT EXISTS name TEXT UNIQUE",
+                    "ALTER TABLE balances ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS players TEXT",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS court_cost INTEGER",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS shuttle_cost INTEGER",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS court_payer TEXT",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS shuttle_payer TEXT",
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS share INTEGER",
+                    'ALTER TABLE rounds ADD COLUMN IF NOT EXISTS "result" TEXT',
+                    "ALTER TABLE rounds ADD COLUMN IF NOT EXISTS comment TEXT",
+                ]
 
-    cur.close()
+                for sql in migrations:
+                    cur.execute(sql)
 
-    conn.close()
+                cur.execute("""
 
-print("database ready")
+CREATE UNIQUE INDEX IF NOT EXISTS balances_name_unique
+ON balances(name)
+
+""")
+
+    print("database ready")
 
 
 def get_all_balances():
@@ -133,6 +156,94 @@ balance = balances.balance + %s
     conn.close()
 
 
+def save_round_with_balances(
+players,
+court_cost,
+shuttle_cost,
+court_payer,
+shuttle_payer,
+share,
+result,
+comment
+):
+
+    with closing(get_conn()) as conn:
+        with conn:
+            with conn.cursor() as cur:
+                for name, amount in result.items():
+                    cur.execute("""
+
+INSERT INTO balances(
+
+    name,
+    balance
+
+)
+
+VALUES(
+
+    %s,
+    %s
+
+)
+
+ON CONFLICT(name)
+
+DO UPDATE SET
+
+balance = balances.balance + %s
+
+""",(name, amount, amount))
+
+                cur.execute("""
+
+INSERT INTO rounds(
+
+    players,
+    court_cost,
+    shuttle_cost,
+    court_payer,
+    shuttle_payer,
+    share,
+    "result",
+    comment
+
+)
+
+VALUES(
+
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s
+
+)
+
+""",(
+
+    json_value(players),
+
+    court_cost,
+
+    shuttle_cost,
+
+    court_payer,
+
+    shuttle_payer,
+
+    share,
+
+    json_value(result),
+
+    comment
+
+))
+
+
 def reset_all_balances():
 
 
@@ -180,7 +291,7 @@ INSERT INTO rounds(
     court_payer,
     shuttle_payer,
     share,
-    result,
+    "result",
     comment
 
 )
@@ -200,7 +311,7 @@ VALUES(
 
 """,(
 
-    json.dumps(players, ensure_ascii=False),
+    json_value(players),
 
     court_cost,
 
@@ -212,7 +323,7 @@ VALUES(
 
     share,
 
-    json.dumps(result, ensure_ascii=False),
+    json_value(result),
 
     comment
 
@@ -234,7 +345,7 @@ def get_latest_round():
 
     SELECT
     created_at,
-    result,
+    "result",
     comment
 
     FROM rounds
@@ -257,7 +368,10 @@ def get_latest_round():
 
     created_at, result_json, comment = row
 
-    result = json.loads(result_json)
+    if isinstance(result_json, str):
+        result = json.loads(result_json)
+    else:
+        result = result_json
 
     text = f"📅 {created_at}\\n\\n"
 

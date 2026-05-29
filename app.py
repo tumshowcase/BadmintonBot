@@ -376,8 +376,6 @@ def handle_message(event):
                 if player == shuttle_payer:
                     amount += shuttle_cost
 
-                update_balance(player, amount)
-
                 round_result[player] = amount
 
                 sign = "+" if amount >= 0 else ""
@@ -386,18 +384,40 @@ def handle_message(event):
                     f"{player}: {sign}{amount} บาท"
                 )
 
-            save_round(
-                players,
-                court_cost,
-                shuttle_cost,
-                court_payer,
-                shuttle_payer,
-                share,
-                round_result,
-                comment
-            )
+            try:
+                save_round_with_balances(
+                    players,
+                    court_cost,
+                    shuttle_cost,
+                    court_payer,
+                    shuttle_payer,
+                    share,
+                    round_result,
+                    comment
+                )
 
-            balances = get_all_balances()
+                balances = get_all_balances()
+
+            except Exception:
+                app.logger.exception("Failed to save badminton round")
+
+                reply_text = (
+                    "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\n"
+                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ reset เพื่อยกเลิก"
+                )
+
+                with ApiClient(configuration) as api_client:
+
+                    line_bot_api = MessagingApi(api_client)
+
+                    line_bot_api.reply_message(
+                        ReplyMessageRequest(
+                            reply_token=event.reply_token,
+                            messages=[TextMessage(text=reply_text)]
+                        )
+                    )
+
+                return
 
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
 
