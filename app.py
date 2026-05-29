@@ -59,30 +59,40 @@ def build_player_list(players):
 
 def format_round_amount(amount):
     if amount >= 0:
-        return f"รับคืน {amount} บาท"
+        return f"ได้คืน {amount} บาท"
 
-    return f"จ่าย {abs(amount)} บาท"
+    return f"จ่ายเพิ่ม {abs(amount)} บาท"
 
 
-def format_signed_amount(amount):
-    sign = "+" if amount >= 0 else ""
-    return f"{sign}{amount} บาท"
+def format_balance_amount(amount):
+    if amount >= 0:
+        return f"เครดิต +{amount} บาท"
+
+    return f"ค้างจ่าย {abs(amount)} บาท"
 
 
 def build_round_result_text(result):
     lines = []
 
     for name, amount in result.items():
-        lines.append(f"- {name}: {format_round_amount(amount)}")
+        icon = "🟢" if amount >= 0 else "🔴"
+        lines.append(f"{icon} {name}: {format_round_amount(amount)}")
 
     return "\n".join(lines)
 
 
 def build_balance_text(balances):
     lines = []
+    rank_icons = ["🥇", "🥈", "🥉"]
 
     for i, (name, balance) in enumerate(balances, start=1):
-        lines.append(f"{i}. {name}: {format_signed_amount(balance)}")
+        if i <= len(rank_icons):
+            rank = rank_icons[i - 1]
+        else:
+            rank = f"{i}."
+
+        icon = "🟢" if balance >= 0 else "🔴"
+        lines.append(f"{rank} {icon} {name}: {format_balance_amount(balance)}")
 
     return "\n".join(lines)
 
@@ -348,20 +358,21 @@ def handle_message(event):
         share = total // len(session["players"])
 
         summary = (
-            "📋 ตรวจสอบข้อมูล\n\n"
-            "ผู้เล่น\n"
-            f"- {', '.join(session['players'])}\n\n"
-            "ค่าใช้จ่าย\n"
-            f"- ค่าคอร์ท: {session['court_cost']} บาท\n"
-            f"- ค่าลูก: {session['shuttle_cost']} บาท\n"
-            f"- รวม: {total} บาท\n"
-            f"- คนละ: {share} บาท\n\n"
-            "คนจ่ายแทน\n"
-            f"- ค่าคอร์ท: {session['court_payer']}\n"
-            f"- ค่าลูก: {session['shuttle_payer']}\n\n"
-            f"หมายเหตุ: {session['comment']}\n\n"
-            "พิมพ์ ok เพื่อบันทึก\n"
-            "พิมพ์ reset เพื่อยกเลิก"
+            "🏸 ตรวจสอบรอบตีแบด\n"
+            "━━━━━━━━━━━━\n\n"
+            "👥 ผู้เล่น\n"
+            f"{' • '.join(session['players'])}\n\n"
+            "💸 ค่าใช้จ่าย\n"
+            f"• ค่าคอร์ท: {session['court_cost']} บาท\n"
+            f"• ค่าลูก: {session['shuttle_cost']} บาท\n"
+            f"• รวมทั้งหมด: {total} บาท\n"
+            f"• เฉลี่ยคนละ: {share} บาท\n\n"
+            "💳 คนออกเงินก่อน\n"
+            f"• ค่าคอร์ท: {session['court_payer']}\n"
+            f"• ค่าลูก: {session['shuttle_payer']}\n\n"
+            f"📝 หมายเหตุ: {session['comment']}\n\n"
+            "✅ พิมพ์ ok เพื่อบันทึก\n"
+            "↩️ พิมพ์ reset เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
@@ -459,11 +470,13 @@ def handle_message(event):
             balance_text = build_balance_text(balances)
 
             reply_text = (
-                "✅ บันทึกเรียบร้อย\n\n"
-                f"เวลา: {now}\n\n"
-                "รอบนี้\n"
+                "✅ บันทึกเรียบร้อย\n"
+                f"🕘 {now}\n\n"
+                "🏸 ผลรอบนี้\n"
+                "━━━━━━━━━━━━\n"
                 f"{latest_round_text}\n\n"
-                "ยอดสะสม\n"
+                "🏦 ยอดสะสม\n"
+                "━━━━━━━━━━━━\n"
                 f"{balance_text}"
             )
             user_sessions[user_id] = {}
