@@ -57,6 +57,36 @@ def build_player_list(players):
     return result.strip()
 
 
+def format_round_amount(amount):
+    if amount >= 0:
+        return f"รับคืน {amount} บาท"
+
+    return f"จ่าย {abs(amount)} บาท"
+
+
+def format_signed_amount(amount):
+    sign = "+" if amount >= 0 else ""
+    return f"{sign}{amount} บาท"
+
+
+def build_round_result_text(result):
+    lines = []
+
+    for name, amount in result.items():
+        lines.append(f"- {name}: {format_round_amount(amount)}")
+
+    return "\n".join(lines)
+
+
+def build_balance_text(balances):
+    lines = []
+
+    for i, (name, balance) in enumerate(balances, start=1):
+        lines.append(f"{i}. {name}: {format_signed_amount(balance)}")
+
+    return "\n".join(lines)
+
+
 @app.route("/")
 def home():
     return "Badminton Bot Running"
@@ -318,17 +348,20 @@ def handle_message(event):
         share = total // len(session["players"])
 
         summary = (
-            "📋 กรุณาตรวจสอบข้อมูล\n\n"
-            f"👥 ผู้เล่น: {', '.join(session['players'])}\n\n"
-            f"🏸 ค่าคอร์ท: {session['court_cost']} บาท\n"
-            f"🎾 ค่าลูก: {session['shuttle_cost']} บาท\n\n"
-            f"💳 คนจ่ายค่าคอร์ท: {session['court_payer']}\n"
-            f"💳 คนจ่ายค่าลูก: {session['shuttle_payer']}\n\n"
-            f"📝 หมายเหตุ: {session['comment']}\n\n"
-            f"📊 รวมทั้งหมด: {total} บาท\n"
-            f"👤 คนละ: {share} บาท\n\n"
-            "พิมพ์ ok เพื่อยืนยัน\n"
-            "หรือพิมพ์ reset เพื่อยกเลิก"
+            "📋 ตรวจสอบข้อมูล\n\n"
+            "ผู้เล่น\n"
+            f"- {', '.join(session['players'])}\n\n"
+            "ค่าใช้จ่าย\n"
+            f"- ค่าคอร์ท: {session['court_cost']} บาท\n"
+            f"- ค่าลูก: {session['shuttle_cost']} บาท\n"
+            f"- รวม: {total} บาท\n"
+            f"- คนละ: {share} บาท\n\n"
+            "คนจ่ายแทน\n"
+            f"- ค่าคอร์ท: {session['court_payer']}\n"
+            f"- ค่าลูก: {session['shuttle_payer']}\n\n"
+            f"หมายเหตุ: {session['comment']}\n\n"
+            "พิมพ์ ok เพื่อบันทึก\n"
+            "พิมพ์ reset เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
@@ -421,53 +454,16 @@ def handle_message(event):
 
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
 
-            latest_round_text = ""
+            latest_round_text = build_round_result_text(round_result)
 
-            for player, amount in round_result.items():
-
-                icon = "🟢" if amount >= 0 else "🔴"
-
-                latest_round_text += (
-                    f"{player.ljust(8)} "
-                    f"{icon} {amount:+}\n"
-                )
-
-            balance_text = ""
-
-            rank_icons = [
-                "🥇",
-                "🥈",
-                "🥉",
-                "4️⃣",
-                "5️⃣",
-                "6️⃣",
-                "7️⃣",
-                "8️⃣"
-            ]
-
-            for i, (name, balance) in enumerate(balances):
-
-                icon = "🟢" if balance >= 0 else "🔴"
-
-                rank = (
-                    rank_icons[i]
-                    if i < len(rank_icons)
-                    else f"{i+1}."
-                )
-
-                balance_text += (
-                    f"{rank} "
-                    f"{name.ljust(8)} "
-                    f"{icon} {balance:+}\n"
-                )
+            balance_text = build_balance_text(balances)
 
             reply_text = (
-                "✅ บันทึกรอบเรียบร้อย\n\n"
-                f"📅 {now}\n\n"
-                "📊 รอบล่าสุด\n\n"
-                f"{latest_round_text}\n"
-                "━━━━━━━━━━━━━━\n\n"
-                "📈 ยอดสะสมทั้งหมด\n\n"
+                "✅ บันทึกเรียบร้อย\n\n"
+                f"เวลา: {now}\n\n"
+                "รอบนี้\n"
+                f"{latest_round_text}\n\n"
+                "ยอดสะสม\n"
                 f"{balance_text}"
             )
             user_sessions[user_id] = {}
