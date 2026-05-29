@@ -254,10 +254,10 @@ def handle_message(event):
 
             count = int(text)
 
-            if count <= 0 or count > len(default_members):
+            if count <= 0 or count > 15:
 
                 reply_text = (
-                    f"กรุณาเลือก 1-{len(default_members)} คน"
+                    "กรุณาเลือก 1-15 คน"
                 )
 
             else:
