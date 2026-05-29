@@ -93,6 +93,66 @@ def build_balance_text(balances):
     return "\n".join(lines)
 
 
+def build_debt_minimization_text(balances):
+    lines = []
+    # Separate people who owe and people who are owed
+    debtors = {name: -balance for name, balance in balances if balance < 0}
+    creditors = {name: balance for name, balance in balances if balance > 0}
+
+    transactions = []
+
+    # Handle "วี" and "พร" as a single entity if both are present
+    # The logic below ensures that if both V and Porn are debtors, their total debt is assigned to V
+    # Similarly, if both are creditors, their total credit is assigned to V
+    # If one is a debtor and the other is a creditor, their net balance is assigned to V
+
+    v_porn_balance = 0
+    if "วี" in debtors: # if V owes money
+        v_porn_balance -= debtors["วี"]
+        del debtors["วี"]
+    elif "วี" in creditors: # if V is owed money
+        v_porn_balance += creditors["วี"]
+        del creditors["วี"]
+
+    if "พร" in debtors: # if Porn owes money
+        v_porn_balance -= debtors["พร"]
+        del debtors["พร"]
+    elif "พร" in creditors: # if Porn is owed money
+        v_porn_balance += creditors["พร"]
+        del creditors["พร"]
+
+    if v_porn_balance != 0:
+        if v_porn_balance < 0:
+            debtors["วี"] = -v_porn_balance
+        else:
+            creditors["วี"] = v_porn_balance
+
+    # Minimize transactions
+    debtors_list = sorted(debtors.items(), key=lambda item: item[1], reverse=True)
+    creditors_list = sorted(creditors.items(), key=lambda item: item[1], reverse=True)
+
+    while debtors_list and creditors_list:
+        debtor_name, debtor_amount = debtors_list.pop(0)
+        creditor_name, creditor_amount = creditors_list.pop(0)
+
+        transfer_amount = min(debtor_amount, creditor_amount)
+
+        transactions.append(f"- {debtor_name} โอนให้ {creditor_name} จำนวน {transfer_amount} บาท")
+
+        debtor_amount -= transfer_amount
+        creditor_amount -= transfer_amount
+
+        if debtor_amount > 0:
+            debtors_list.insert(0, (debtor_name, debtor_amount))
+        if creditor_amount > 0:
+            creditors_list.insert(0, (creditor_name, creditor_amount))
+
+    if not transactions:
+        return "💸 สรุปการโอนเงินเคลียร์หนี้:\nไม่มีการโอนเงินที่จำเป็น"
+
+    return "💸 สรุปการโอนเงินเคลียร์หนี้:\n" + "\n".join(transactions)
+
+
 @app.route("/")
 def home():
     return "Badminton Bot Running"
@@ -155,6 +215,10 @@ def handle_message(event):
 
         for name, balance in balances:
             reply_text += f"{name}: {balance} บาท\n"
+
+    elif text.lower() == "เคลียร์หนี้":
+
+        reply_text = build_debt_minimization_text(get_all_balances())
 
     elif text.lower() == "รอบล่าสุด":
 
