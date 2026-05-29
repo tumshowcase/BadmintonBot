@@ -114,7 +114,25 @@ def get_all_balances():
 
     conn.close()
 
-    return rows
+    # Group "วี" and "พร" into "ครอบครัว วี & พร"
+    grouped_balances = []
+    family_balance = 0
+    has_family = False
+
+    for name, balance in rows:
+        if name in ("วี", "พร"):
+            family_balance += balance
+            has_family = True
+        else:
+            grouped_balances.append((name, balance))
+
+    if has_family:
+        grouped_balances.append(("ครอบครัว วี & พร", family_balance))
+
+    # Re-sort by balance descending
+    grouped_balances.sort(key=lambda x: x[1], reverse=True)
+
+    return grouped_balances
 
 def update_balance(
 name,
