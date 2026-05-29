@@ -83,13 +83,9 @@ def build_round_result_text(result):
 
 def build_balance_text(balances):
     lines = []
-    rank_icons = ["🥇", "🥈", "🥉"]
 
     for i, (name, balance) in enumerate(balances, start=1):
-        if i <= len(rank_icons):
-            rank = rank_icons[i - 1]
-        else:
-            rank = f"{i}."
+        rank = f"{i}."
 
         icon = "🟢" if balance >= 0 else "🔴"
         lines.append(f"{rank} {icon} {name}: {format_balance_amount(balance)}")
@@ -358,9 +354,9 @@ def handle_message(event):
         share = total // len(session["players"])
 
         summary = (
-            "🏸 ตรวจสอบรอบตีแบด\n"
+            "🏸 กรุณาตรวจสอบข้อมูล\n"
             "━━━━━━━━━━━━\n\n"
-            "👥 ผู้เล่น\n"
+            f"👥 ผู้เล่น({len(session['players'])}คน)\n"
             f"{' • '.join(session['players'])}\n\n"
             "💸 ค่าใช้จ่าย\n"
             f"• ค่าคอร์ท: {session['court_cost']} บาท\n"
@@ -472,7 +468,7 @@ def handle_message(event):
             reply_text = (
                 "✅ บันทึกเรียบร้อย\n"
                 f"🕘 {now}\n\n"
-                "🏸 ผลรอบนี้\n"
+                "🏸 สรุปค่าใช้จ่าย\n"
                 "━━━━━━━━━━━━\n"
                 f"{latest_round_text}\n\n"
                 "🏦 ยอดสะสม\n"
