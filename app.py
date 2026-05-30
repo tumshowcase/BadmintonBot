@@ -189,19 +189,19 @@ def handle_message(event):
             user_sessions[user_id] = {}
             session = {}
         elif text == "4":
-            text = "/แนะนำจ่าย"
-            user_sessions[user_id] = {}
-            session = {}
-        elif text == "5":
             text = "/รอบล่าสุด"
             user_sessions[user_id] = {}
             session = {}
-        elif text == "6":
+        elif text == "5":
             text = "/ประวัติย้อนหลัง"
             user_sessions[user_id] = {}
             session = {}
-        elif text == "7":
+        elif text == "6":
             text = "/ยกเลิกรอบล่าสุด"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "7":
+            text = "/reset balance"
             user_sessions[user_id] = {}
             session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
@@ -225,10 +225,10 @@ def handle_message(event):
             "กด 1 : 🏸 คิดเงิน\n"
             "กด 2 : 💸 จ่ายเงิน\n"
             "กด 3 : 🏦 ยอดสะสม\n"
-            "กด 4 : 💡 แนะนำจ่าย\n"
-            "กด 5 : 🕘 รอบล่าสุด\n"
-            "กด 6 : 📜 ประวัติย้อนหลัง\n"
-            "กด 7 : ⏪ ยกเลิกรอบล่าสุด\n"
+            "กด 4 : 🕘 รอบล่าสุด\n"
+            "กด 5 : 📜 ประวัติย้อนหลัง\n"
+            "กด 6 : 🗑️ ยกเลิกรอบล่าสุด (ลบบิลผิด)\n"
+            "กด 7 : ✅ เคลียร์ยอดเรียบร้อย (ล้างเป็น 0)\n"
             "กด 0 : 🔴 ออก\n\n"
             "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
@@ -249,7 +249,7 @@ def handle_message(event):
 
     elif text.lower() == "/reset balance":
         reset_all_balances()
-        reply_text = "ล้างยอดสะสมทั้งหมดแล้ว"
+        reply_text = "✅ เคลียร์ยอดสะสมของทุกคนเรียบร้อยแล้วครับ\n(เริ่มนับยอดใหม่ที่ 0 บาท)"
 
     elif text.lower() == "/ยอดสะสม":
         balances = get_all_balances()
@@ -261,9 +261,6 @@ def handle_message(event):
             f"{balance_text}\n\n"
             f"{debt_text}"
         )
-
-    elif text.lower() == "/แนะนำจ่าย":
-        reply_text = build_debt_minimization_text(get_all_balances())
 
     elif text.lower() == "/รอบล่าสุด":
         latest = get_latest_round()
@@ -278,7 +275,7 @@ def handle_message(event):
             reply_text = "ไม่มีบิลให้ยกเลิกครับ"
         else:
             user_sessions[user_id] = {"step": "confirm_undo"}
-            preview_text = latest_text.replace("🕘 บิลรอบล่าสุด", "📌 บิลที่จะถูกยกเลิก")
+            preview_text = latest_text.replace("🕘 บิลรอบล่าสุด", "🗑️ บิลที่จะถูกลบทิ้ง")
             reply_text = (
                 "⚠️ คุณต้องการยกเลิกบิลนี้ใช่หรือไม่?\n"
                 "━━━━━━━━━━━━\n"
@@ -498,7 +495,6 @@ def handle_message(event):
                 reply_text = f"กรุณาเลือกให้ครบ {session['player_count']} คน (คุณระบุมา {len(selected_players)} คน)"
             else:
                 session["players"] = selected_players
-                # กรองเอาเฉพาะสมาชิกหลักไว้เป็นตัวเลือกสำหรับหน้าถัดๆ ไป (ไม่มี G)
                 session["main_players"] = [p for p in selected_players if not p.startswith("G")]
                 session["step"] = "court_cost"
                 reply_text = "🏸 ค่าคอร์ท (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
@@ -634,7 +630,7 @@ def handle_message(event):
             
             total = court_cost + shuttle_cost
             share = total // len(players)
-            remainder = total % len(players) # คำนวณเศษที่หารไม่ลงตัว
+            remainder = total % len(players)
 
             result_lines = []
             round_result = {}
@@ -647,11 +643,9 @@ def handle_message(event):
                     amount += shuttle_cost
                 round_result[player] = amount
 
-            # ปัดเศษ (Remainder) ให้คนจ่ายค่าคอร์ทรับไป เพื่อให้ยอดรวมกลุ่มเป็น 0 พอดี
             if remainder > 0:
                 round_result[court_payer] -= remainder
 
-            # จัดการยอดขาจร (โอนยอดติดลบของขาจร ไปให้คนที่รับเงินสด)
             if "guest_collector" in session:
                 guest_debt = 0
                 collector = session["guest_collector"]
