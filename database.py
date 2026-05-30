@@ -320,19 +320,23 @@ def get_statistics():
     cur = conn.cursor()
     cur.execute('SELECT COUNT(*), SUM(court_cost), SUM(shuttle_cost), MIN(created_at) FROM rounds')
     stats = cur.fetchone()
+    
     if not stats or stats[0] == 0:
         cur.close()
         conn.close()
         return None
+        
     total_rounds, total_court, total_shuttle, first_date = stats
     
     cur.execute('SELECT players, share FROM rounds')
     rows = cur.fetchall()
     member_stats = {}
+    
     for players_json, share in rows:
         # 🛠️ ป้องกันขั้นสุด: ข้ามทันทีถ้าไม่มีข้อมูลรายชื่อในแถวนั้น
         if not players_json:
             continue
+            
         try:
             players = json.loads(players_json) if isinstance(players_json, str) else players_json
             # เช็กว่าผลลัพธ์จากการโหลดไม่ใช่ None หรือค่าว่างที่ใช้วนลูปไม่ได้
