@@ -277,11 +277,13 @@ def handle_message(event):
 
         balances = get_all_balances()
         balance_text = build_balance_text(balances)
+        debt_text = build_debt_minimization_text(balances)
 
         reply_text = (
             "🏦 ยอดสะสม\n"
             "━━━━━━━━━━━━\n"
-            f"{balance_text}"
+            f"{balance_text}\n\n"
+            f"{debt_text}"
         )
 
     elif text.lower() == "/แนะนำจ่าย":
@@ -386,13 +388,15 @@ def handle_message(event):
                 process_payment(db_payer, db_payee, amount)
                 balances = get_all_balances()
                 balance_text = build_balance_text(balances)
+                debt_text = build_debt_minimization_text(balances)
 
                 reply_text = (
                     "✅ บันทึกการโอนเงินเรียบร้อย\n"
                     f"💸 {payer} โอนให้ {payee} จำนวน {amount} บาท\n\n"
                     "🏦 ยอดสะสมล่าสุด\n"
                     "━━━━━━━━━━━━\n"
-                    f"{balance_text}"
+                    f"{balance_text}\n\n"
+                    f"{debt_text}"
                 )
                 user_sessions[user_id] = {}
             except Exception as e:
@@ -685,6 +689,7 @@ def handle_message(event):
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
             latest_round_text = build_round_result_text(round_result)
             balance_text = build_balance_text(balances)
+            debt_text = build_debt_minimization_text(balances)
 
             reply_text = (
                 "✅ บันทึกเรียบร้อย\n"
@@ -694,7 +699,8 @@ def handle_message(event):
                 f"{latest_round_text}\n\n"
                 "🏦 ยอดสะสม\n"
                 "━━━━━━━━━━━━\n"
-                f"{balance_text}"
+                f"{balance_text}\n\n"
+                f"{debt_text}"
             )
             user_sessions[user_id] = {}
 
