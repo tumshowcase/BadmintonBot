@@ -192,9 +192,9 @@ def handle_message(event):
         reply_text = (
             "คำสั่ง\n\n"
             "คิดเงิน\n"
-            "ยอดทั้งหมด\n"
+            "ยอดสะสม\n"
             "รอบล่าสุด\n"
-            "เคลียร์หนี้\n"
+            "reset\n"
             "reset balance"
         )
 
@@ -210,14 +210,16 @@ def handle_message(event):
 
         reply_text = "ล้างยอดสะสมทั้งหมดแล้ว"
 
-    elif text.lower() == "ยอดทั้งหมด":
+    elif text.lower() == "ยอดสะสม":
 
         balances = get_all_balances()
+        balance_text = build_balance_text(balances)
 
-        reply_text = "ยอดสะสมทั้งหมด\n\n"
-
-        for name, balance in balances:
-            reply_text += f"{name}: {balance} บาท\n"
+        reply_text = (
+            "🏦 ยอดสะสม\n"
+            "━━━━━━━━━━━━\n"
+            f"{balance_text}"
+        )
 
     elif text.lower() == "เคลียร์หนี้":
 
@@ -270,31 +272,18 @@ def handle_message(event):
                     "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
                     "(พิมพ์ no เพื่อยกเลิก)"
                 )
+            elif not amount_str.isdigit():
+                reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขเท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
             else:
-                # แปลงชื่อเพื่อเช็กกระเป๋าเงินครอบครัว
-                check_payer = "วี" if payer == "พร" else payer
-                check_payee = "วี" if payee == "พร" else payee
+                session["payment_payer"] = payer
+                session["payment_payee"] = payee
+                session["payment_amount"] = int(amount_str)
+                session["step"] = "confirm_payment"
 
-                if payer == payee:
-                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
-                elif check_payer == check_payee:
-                    reply_text = (
-                        "⚠️ รายการนี้ไม่มีผลต่อยอดสะสม\n\n"
-                        "เนื่องจาก วี และ พร ถูกนับเป็นครอบครัวเดียวกัน\n"
-                        "(พิมพ์ no เพื่อยกเลิก)"
-                    )
-                elif not amount_str.isdigit() or int(amount_str) <= 0:
-                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
-                else:
-                    session["payment_payer"] = payer
-                    session["payment_payee"] = payee
-                    session["payment_amount"] = int(amount_str)
-                    session["step"] = "confirm_payment"
-
-                    reply_text = (
-                        f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
-                        "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
-                    )
+                reply_text = (
+                    f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
+                    "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
+                )
         else:
             reply_text = (
                 "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
@@ -334,6 +323,15 @@ def handle_message(event):
             reply_text = "ยกเลิกรายการแล้ว"
         else:
             reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือ no เพื่อยกเลิก"
+
+        user_sessions[user_id] = {
+            "step": "player_count"
+        }
+
+        reply_text = (
+            "🏸 วันนี้มีกี่คน?\n\n"
+            "กรุณาพิมพ์เป็นตัวเลข"
+        )
 
     elif session.get("step") == "player_count":
 
@@ -544,7 +542,7 @@ def handle_message(event):
             f"• ค่าลูก: {session['shuttle_payer']}\n\n"
             f"📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
-            "↩️ พิมพ์ no เพื่อยกเลิก"
+            "↩️ พิมพ์ on เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
