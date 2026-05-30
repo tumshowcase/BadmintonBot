@@ -157,7 +157,7 @@ def build_debt_minimization_text(balances):
         "💡 แนะนำการโอนเงิน\n"
         "━━━━━━━━━━━━\n"
         + "\n".join(transactions) +
-        "\n\n✨ (โอนตามนี้เพื่อจบหนี้ไวที่สุด)"
+        "\n\n✨ (จ่ายตามนี้ง่ายสุด)"
     )
 
 
@@ -193,20 +193,39 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # หมวดคำสั่งหลัก (ต้องมี / นำหน้า)
+    # ระบบแปลงคีย์ลัดตัวเลข (UX Improvement)
+    # ==========================================
+    
+    # 1. คีย์ลัด 0 สำหรับยกเลิก (ใช้ได้ตลอดเวลา ทุกหน้า)
+    if text == "0":
+        text = "/cancel"
+        
+    # 2. แปลงตัวเลข 1-6 ให้เป็นคำสั่ง (เฉพาะตอนที่ไม่ได้ติดค้างการกรอกข้อมูลอยู่)
+    elif not session.get("step"):
+        if text == "1": text = "/คิดเงิน"
+        elif text == "2": text = "/จ่ายเงิน"
+        elif text == "3": text = "/ยอดสะสม"
+        elif text == "4": text = "/แนะนำจ่าย"
+        elif text == "5": text = "/รอบล่าสุด"
+        elif text == "6": text = "/เมนู"
+
+    # ==========================================
+    # หมวดคำสั่งหลัก (Strict Slash Trigger)
     # ==========================================
 
-    if text.lower() == "/คำสั่ง":
+    if text.lower() in ["/เมนู", "/menu"]:
 
         reply_text = (
-            "รายการคำสั่ง\n\n"
-            "/คิดเงิน\n"
-            "/จ่ายเงิน\n"
-            "/ยอดสะสม\n"
-            "/แนะนำจ่าย\n"
-            "/รอบล่าสุด\n"
-            "/cancel\n"
-            "/reset balance"
+            "📋 เมนูหลัก KTB_Bot\n"
+            "━━━━━━━━━━━━\n"
+            "กด 1️⃣ : 🏸 คิดเงิน\n"
+            "กด 2️⃣ : 💸 จ่ายเงิน\n"
+            "กด 3️⃣ : 🏦 ยอดสะสม\n"
+            "กด 4️⃣ : 💡 แนะนำจ่าย\n"
+            "กด 5️⃣ : 🕘 รอบล่าสุด\n"
+            "กด 6️⃣ : 📋 เรียกดูเมนู\n"
+            "กด 0️⃣ : ❌ ยกเลิกรายการ\n\n"
+            "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
 
     elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
@@ -214,7 +233,7 @@ def handle_message(event):
         # เช็กก่อนว่ามีสถานะค้างอยู่ให้ยกเลิกไหม
         if session.get("step"):
             user_sessions[user_id] = {}
-            reply_text = "ยกเลิกรายการเรียบร้อยแล้ว"
+            reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
         else:
             # ถ้าไม่มีอะไรค้างอยู่เลย ให้บอทเงียบไปเลย ไม่รบกวนแชทกลุ่ม
             return "OK", 200
@@ -259,7 +278,7 @@ def handle_message(event):
         reply_text = (
             "🏸 วันนี้มีกี่คน?\n\n"
             "กรุณาพิมพ์เป็นตัวเลข\n"
-            "(พิมพ์ /cancel เพื่อยกเลิก)"
+            "(พิมพ์ 0 เพื่อยกเลิก)"
         )
 
     elif text.lower() == "/จ่ายเงิน":
@@ -271,7 +290,7 @@ def handle_message(event):
         reply_text = (
             "พิมพ์รูปแบบ: [ใคร] จ่าย [ใคร] [เท่าไร]\n"
             "เช่น: วี จ่าย ตั้ม 100\n\n"
-            "(พิมพ์ /cancel เพื่อยกเลิก)"
+            "(พิมพ์ 0 เพื่อยกเลิก)"
         )
 
     # ==========================================
@@ -290,22 +309,22 @@ def handle_message(event):
             if payer not in default_members or payee not in default_members:
                 reply_text = (
                     "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
-                    "(พิมพ์ /cancel เพื่อยกเลิก)"
+                    "(พิมพ์ 0 เพื่อยกเลิก)"
                 )
             else:
                 check_payer = "วี" if payer == "พร" else payer
                 check_payee = "วี" if payee == "พร" else payee
 
                 if payer == payee:
-                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ /cancel เพื่อยกเลิก)"
+                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ 0 เพื่อยกเลิก)"
                 elif check_payer == check_payee:
                     reply_text = (
                         "⚠️ รายการนี้ไม่มีผลต่อยอดสะสม\n\n"
                         "เนื่องจาก วี และ พร ถูกนับเป็นครอบครัวเดียวกัน\n"
-                        "(พิมพ์ /cancel เพื่อยกเลิก)"
+                        "(พิมพ์ 0 เพื่อยกเลิก)"
                     )
                 elif not amount_str.isdigit() or int(amount_str) <= 0:
-                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ /cancel เพื่อยกเลิก)"
+                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ 0 เพื่อยกเลิก)"
                 else:
                     session["payment_payer"] = payer
                     session["payment_payee"] = payee
@@ -315,13 +334,13 @@ def handle_message(event):
                     reply_text = (
                         f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n\n"
                         "👉 พิมพ์ ok เพื่อยืนยัน\n"
-                        "👉 พิมพ์ /cancel เพื่อยกเลิก"
+                        "👉 พิมพ์ 0 เพื่อยกเลิก"
                     )
         else:
             reply_text = (
                 "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
                 "เช่น: วี จ่าย ตั้ม 100\n"
-                "(พิมพ์ /cancel เพื่อยกเลิก)"
+                "(พิมพ์ 0 เพื่อยกเลิก)"
             )
 
     elif session.get("step") == "confirm_payment":
@@ -352,14 +371,14 @@ def handle_message(event):
                 user_sessions[user_id] = {}
 
         else:
-            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ /cancel เพื่อยกเลิก"
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อยกเลิก"
 
 
     elif session.get("step") == "player_count":
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น (หรือพิมพ์ /cancel เพื่อยกเลิก)"
+            reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
 
         else:
 
@@ -380,7 +399,8 @@ def handle_message(event):
                 reply_text = (
                     "👥 เลือกผู้เล่น\n\n"
                     f"{build_player_list(default_members)}\n\n"
-                    "เช่น: 1 2 3"
+                    "เช่น: 1 2 3\n"
+                    "(พิมพ์ 0 เพื่อยกเลิก)"
                 )
 
     elif session.get("step") == "choose_players":
@@ -420,7 +440,7 @@ def handle_message(event):
             else:
                 session["players"] = selected_players
                 session["step"] = "court_cost"
-                reply_text = "🏸 ค่าคอร์ท (บาท)"
+                reply_text = "🏸 ค่าคอร์ท (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
 
         except Exception as e:
             err = str(e)
@@ -434,14 +454,15 @@ def handle_message(event):
             reply_text = (
                 f"{alert_msg}\n\n"
                 f"{build_player_list(default_members)}\n\n"
-                "ตัวอย่างที่ถูกต้อง: 1 2 3 G1 G2"
+                "ตัวอย่างที่ถูกต้อง: 1 2 3 G1 G2\n"
+                "(พิมพ์ 0 เพื่อยกเลิก)"
             )
 
     elif session.get("step") == "court_cost":
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ /cancel เพื่อยกเลิก)"
+            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
 
         else:
 
@@ -449,13 +470,13 @@ def handle_message(event):
 
             session["step"] = "shuttle_cost"
 
-            reply_text = "🎾 ค่าลูก (บาท)"
+            reply_text = "🎾 ค่าลูก (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
 
     elif session.get("step") == "shuttle_cost":
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ /cancel เพื่อยกเลิก)"
+            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
 
         else:
 
@@ -467,7 +488,8 @@ def handle_message(event):
 
             reply_text = (
                 "💳 ใครจ่ายค่าคอร์ท?\n\n"
-                f"{build_player_list(players)}"
+                f"{build_player_list(players)}\n\n"
+                "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
             )
 
     elif session.get("step") == "court_payer":
@@ -500,7 +522,8 @@ def handle_message(event):
 
                 reply_text = (
                     "💳 ใครจ่ายค่าลูก?\n\n"
-                    f"{build_player_list(players)}"
+                    f"{build_player_list(players)}\n\n"
+                    "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
                 )
 
     elif session.get("step") == "shuttle_payer":
@@ -533,7 +556,8 @@ def handle_message(event):
 
                 reply_text = (
                     "📝 หมายเหตุ\n\n"
-                    "ถ้าไม่มี พิมพ์ -"
+                    "ถ้าไม่มี พิมพ์ -\n"
+                    "(พิมพ์ 0 เพื่อยกเลิก)"
                 )
 
     elif session.get("step") == "comment":
@@ -562,7 +586,7 @@ def handle_message(event):
             f"• ค่าลูก: {session['shuttle_payer']}\n\n"
             f"📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
-            "↩️ พิมพ์ /cancel เพื่อยกเลิก"
+            "❌ พิมพ์ 0 เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
@@ -616,7 +640,7 @@ def handle_message(event):
 
                 reply_text = (
                     "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\n"
-                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ /cancel เพื่อยกเลิก"
+                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ 0 เพื่อยกเลิก"
                 )
 
                 with ApiClient(configuration) as api_client:
@@ -646,7 +670,7 @@ def handle_message(event):
             user_sessions[user_id] = {}
 
         else:
-            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ /cancel เพื่อยกเลิก"
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อยกเลิก"
 
     else:
 
