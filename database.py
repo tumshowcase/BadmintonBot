@@ -127,7 +127,7 @@ def get_all_balances():
             grouped_balances.append((name, balance))
 
     if has_family:
-        grouped_balances.append(("ครอบครัว วี & พร", family_balance))
+        grouped_balances.append(("วี & พร", family_balance))
 
     # Re-sort by balance descending
     grouped_balances.sort(key=lambda x: x[1], reverse=True)

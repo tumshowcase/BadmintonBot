@@ -62,9 +62,9 @@ def build_player_list(players):
 
 def format_round_amount(amount):
     if amount >= 0:
-        return f"ได้คืน {amount} บาท"
+        return f"+{amount} บาท"
 
-    return f"จ่ายเพิ่ม {abs(amount)} บาท"
+    return f"-{abs(amount)} บาท"
 
 
 def format_balance_amount(amount):
