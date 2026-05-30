@@ -238,7 +238,6 @@ def get_recent_rounds(limit=5):
         results.append({"id": round_id, "time_str": time_str, "comment": comment})
     return results
 
-
 def get_round_by_id(round_id):
     conn = get_conn()
     cur = conn.cursor()
@@ -331,10 +330,9 @@ def get_statistics():
     rows = cur.fetchall()
     member_stats = {}
     for players_json, share in rows:
-        # 🛠️ ป้องกัน Error: ตรวจสอบว่ามีข้อมูลรายชื่อผู้เล่นในบิลรอบนั้นๆ หรือไม่
+        # 🛠️ จุดแก้ไขป้องกัน Error: เช็กค่าว่างก่อนเอาไปประมวลผลต่อ
         if not players_json:
             continue
-            
         try:
             players = json.loads(players_json) if isinstance(players_json, str) else players_json
             if not players:
