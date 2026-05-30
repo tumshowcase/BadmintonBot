@@ -270,18 +270,25 @@ def handle_message(event):
                     "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
                     "(พิมพ์ no เพื่อยกเลิก)"
                 )
-            elif not amount_str.isdigit():
-                reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขเท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
             else:
-                session["payment_payer"] = payer
-                session["payment_payee"] = payee
-                session["payment_amount"] = int(amount_str)
-                session["step"] = "confirm_payment"
+                # ดักจับกระเป๋าเดียวกัน (แปลง พร เป็น วี เพื่อเช็กว่าซ้ำกันไหม)
+                check_payer = "วี" if payer == "พร" else payer
+                check_payee = "วี" if payee == "พร" else payee
 
-                reply_text = (
-                    f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
-                    "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
-                )
+                if check_payer == check_payee:
+                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเอง หรือโอนภายในครอบครัวเดียวกันได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
+                elif not amount_str.isdigit() or int(amount_str) <= 0:
+                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
+                else:
+                    session["payment_payer"] = payer
+                    session["payment_payee"] = payee
+                    session["payment_amount"] = int(amount_str)
+                    session["step"] = "confirm_payment"
+
+                    reply_text = (
+                        f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
+                        "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
+                    )
         else:
             reply_text = (
                 "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
