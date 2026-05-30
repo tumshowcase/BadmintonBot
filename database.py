@@ -330,14 +330,24 @@ def get_statistics():
     rows = cur.fetchall()
     member_stats = {}
     for players_json, share in rows:
-        players = json.loads(players_json) if isinstance(players_json, str) else players_json
+        # 🛠️ ป้องกัน Error: ตรวจสอบว่ามีข้อมูลรายชื่อผู้เล่นในบิลรอบนั้นๆ หรือไม่
+        if not players_json:
+            continue
+            
+        try:
+            players = json.loads(players_json) if isinstance(players_json, str) else players_json
+            if not players:
+                continue
+        except Exception:
+            continue
+
         for p in players:
             if p.upper().startswith("G"):
                 continue
             if p not in member_stats:
                 member_stats[p] = {"count": 0, "total_paid": 0}
             member_stats[p]["count"] += 1
-            member_stats[p]["total_paid"] += share
+            member_stats[p]["total_paid"] += (share or 0)
             
     cur.close()
     conn.close()
