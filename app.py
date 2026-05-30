@@ -173,7 +173,7 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-7 ทำงานเฉพาะหน้าเมนู)
+    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-8 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
     if session.get("step") == "waiting_menu_choice":
         if text == "1":
@@ -204,6 +204,10 @@ def handle_message(event):
             text = "/reset balance"
             user_sessions[user_id] = {}
             session = {}
+        elif text == "8":
+            text = "/สถิติก๊วนแบด"
+            user_sessions[user_id] = {}
+            session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
             text = "/cancel"
         else:
@@ -227,8 +231,9 @@ def handle_message(event):
             "กด 3 : 🏦 ยอดสะสม\n"
             "กด 4 : 🕘 รอบล่าสุด\n"
             "กด 5 : 📜 ประวัติย้อนหลัง\n"
-            "กด 6 : 🗑️ ยกเลิกรอบล่าสุด\n"
-            "กด 7 : ✅ เคลียร์ยอดเรียบร้อย\n"
+            "กด 6 : 🗑️ ยกเลิกรอบล่าสุด (ลบบิลผิด)\n"
+            "กด 7 : ✅ เคลียร์ยอดเรียบร้อย (ล้างเป็น 0)\n"
+            "กด 8 : 📊 สถิติก๊วนแบด\n"
             "กด 0 : 🔴 ออก\n\n"
             "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
@@ -303,6 +308,30 @@ def handle_message(event):
             lines.append("\n👉 พิมพ์ตัวเลขเพื่อดูรายละเอียด")
             lines.append("กด 0 : 🔴 ออก")
             reply_text = "\n".join(lines)
+
+    elif text.lower() == "/สถิติก๊วนแบด":
+        data = get_statistics()
+        if not data:
+            reply_text = "ยังไม่มีข้อมูลสถิติครับ"
+        else:
+            member_list = sorted(data['member_stats'].items(), key=lambda x: x[1]['total_paid'], reverse=True)
+            member_text = ""
+            for name, val in member_list:
+                member_text += f"• {name}: {val['total_paid']:,} บาท ({val['count']} ครั้ง)\n"
+            
+            total_sum = data['total_court'] + data['total_shuttle']
+            reply_text = (
+                f"📊 รายงานสถิติก๊วนแบด\n"
+                f"📅 ตั้งแต่: {data['first_date']}\n"
+                "━━━━━━━━━━━━\n"
+                f"🏸 เล่นทั้งหมด: {data['total_rounds']} รอบ\n"
+                f"💰 รวมค่าคอร์ท: {data['total_court']:,} บาท\n"
+                f"🎾 รวมค่าลูก: {data['total_shuttle']:,} บาท\n"
+                f"✨ รวมยอดใช้จ่าย: {total_sum:,} บาท\n\n"
+                "👤 สรุปรายคน (จ่ายสะสม):\n"
+                f"{member_text}"
+            )
+        user_sessions[user_id] = {}
 
     elif text.lower() == "/คิดเงิน":
         user_sessions[user_id] = {"step": "player_count"}

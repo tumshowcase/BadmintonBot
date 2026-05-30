@@ -62,7 +62,10 @@ CREATE TABLE IF NOT EXISTS payment_history(
                 ]
 
                 for sql in migrations:
-                    cur.execute(sql)
+                    try:
+                        cur.execute(sql)
+                    except Exception:
+                        pass
 
                 cur.execute("""
 CREATE UNIQUE INDEX IF NOT EXISTS balances_name_unique
@@ -311,3 +314,40 @@ def undo_latest_round():
                 # 3. ลบบิลนั้นทิ้งไป
                 cur.execute("DELETE FROM rounds WHERE id = %s", (round_id,))
                 return True
+
+def get_statistics():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute('SELECT COUNT(*), SUM(court_cost), SUM(shuttle_cost), MIN(created_at) FROM rounds')
+    stats = cur.fetchone()
+    if not stats or stats[0] == 0:
+        cur.close()
+        conn.close()
+        return None
+    total_rounds, total_court, total_shuttle, first_date = stats
+    
+    cur.execute('SELECT players, share FROM rounds')
+    rows = cur.fetchall()
+    member_stats = {}
+    for players_json, share in rows:
+        players = json.loads(players_json) if isinstance(players_json, str) else players_json
+        for p in players:
+            if p.upper().startswith("G"):
+                continue
+            if p not in member_stats:
+                member_stats[p] = {"count": 0, "total_paid": 0}
+            member_stats[p]["count"] += 1
+            member_stats[p]["total_paid"] += share
+            
+    cur.close()
+    conn.close()
+    
+    thai_first_date = first_date + timedelta(hours=7) if first_date else datetime.utcnow() + timedelta(hours=7)
+    
+    return {
+        "total_rounds": total_rounds,
+        "total_court": total_court or 0,
+        "total_shuttle": total_shuttle or 0,
+        "first_date": thai_first_date.strftime("%d/%m/%Y"),
+        "member_stats": member_stats
+    }
