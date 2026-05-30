@@ -238,6 +238,7 @@ def get_recent_rounds(limit=5):
         results.append({"id": round_id, "time_str": time_str, "comment": comment})
     return results
 
+
 def get_round_by_id(round_id):
     conn = get_conn()
     cur = conn.cursor()
