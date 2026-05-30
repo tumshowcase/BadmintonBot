@@ -193,27 +193,56 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบแปลงคีย์ลัดตัวเลข (UX Improvement)
+    # ระบบคีย์ลัดอัจฉริยะ (ดักจับตามสถานะเท่านั้น)
     # ==========================================
     
-    # 1. คีย์ลัด 0 สำหรับยกเลิก (ใช้ได้ตลอดเวลา ทุกหน้า)
-    if text == "0":
+    # 1. จัดการเมื่อบอทกำลัง "รอให้เลือกเมนู"
+    if session.get("step") == "waiting_menu_choice":
+        if text == "1":
+            text = "/คิดเงิน"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "2":
+            text = "/จ่ายเงิน"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "3":
+            text = "/ยอดสะสม"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "4":
+            text = "/แนะนำจ่าย"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "5":
+            text = "/รอบล่าสุด"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "6":
+            text = "/เมนู"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
+            text = "/cancel"
+            # ให้หลุดลงไปเข้าเงื่อนไขยกเลิกด้านล่างเพื่อส่งข้อความ "ยกเลิกรายการ"
+        else:
+            # ถ้าพิมพ์อะไรแปลกๆ มาตอนหน้าเมนู ให้พับเมนูเก็บเงียบๆ (ถือว่าคุยเล่น)
+            user_sessions[user_id] = {}
+            session = {}
+
+    # 2. คีย์ลัด 0 สำหรับยกเลิกในสเต็ปอื่นๆ (เช่น กำลังกรอกยอดเงิน) จะทำงานก็ต่อเมื่อมี session ค้างอยู่เท่านั้น
+    if text == "0" and session.get("step"):
         text = "/cancel"
-        
-    # 2. แปลงตัวเลข 1-6 ให้เป็นคำสั่ง (เฉพาะตอนที่ไม่ได้ติดค้างการกรอกข้อมูลอยู่)
-    elif not session.get("step"):
-        if text == "1": text = "/คิดเงิน"
-        elif text == "2": text = "/จ่ายเงิน"
-        elif text == "3": text = "/ยอดสะสม"
-        elif text == "4": text = "/แนะนำจ่าย"
-        elif text == "5": text = "/รอบล่าสุด"
-        elif text == "6": text = "/เมนู"
 
     # ==========================================
-    # หมวดคำสั่งหลัก (Strict Slash Trigger)
+    # หมวดคำสั่งหลัก
     # ==========================================
 
-    if text.lower() in ["/เมนู", "/menu"]:
+    if text.lower() in ["/เมนู", "/menu", "เมนู", "menu"]:
+
+        user_sessions[user_id] = {
+            "step": "waiting_menu_choice"
+        }
 
         reply_text = (
             "📋 เมนูหลัก KTB_Bot\n"
@@ -230,12 +259,11 @@ def handle_message(event):
 
     elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
 
-        # เช็กก่อนว่ามีสถานะค้างอยู่ให้ยกเลิกไหม
-        if session.get("step"):
+        # เช็กอีกครั้งเพื่อความชัวร์ ว่ามียอดให้ยกเลิกจริงๆ
+        if session.get("step") or text.lower() == "/cancel":
             user_sessions[user_id] = {}
             reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
         else:
-            # ถ้าไม่มีอะไรค้างอยู่เลย ให้บอทเงียบไปเลย ไม่รบกวนแชทกลุ่ม
             return "OK", 200
 
     elif text.lower() == "/reset balance":
