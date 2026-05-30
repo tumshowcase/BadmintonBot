@@ -271,12 +271,18 @@ def handle_message(event):
                     "(พิมพ์ no เพื่อยกเลิก)"
                 )
             else:
-                # ดักจับกระเป๋าเดียวกัน (แปลง พร เป็น วี เพื่อเช็กว่าซ้ำกันไหม)
+                # แปลงชื่อเพื่อเช็กกระเป๋าเงินครอบครัว
                 check_payer = "วี" if payer == "พร" else payer
                 check_payee = "วี" if payee == "พร" else payee
 
-                if check_payer == check_payee:
-                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเอง หรือโอนภายในครอบครัวเดียวกันได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
+                if payer == payee:
+                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
+                elif check_payer == check_payee:
+                    reply_text = (
+                        "⚠️ รายการนี้ไม่มีผลต่อยอดสะสม\n\n"
+                        "เนื่องจาก วี และ พร ถูกนับเป็นครอบครัวเดียวกัน\n"
+                        "(พิมพ์ no เพื่อยกเลิก)"
+                    )
                 elif not amount_str.isdigit() or int(amount_str) <= 0:
                     reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
                 else:
