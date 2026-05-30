@@ -74,17 +74,12 @@ def get_all_balances():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-    SELECT
-    name,
-    balance
-    FROM balances
-    ORDER BY balance DESC
+    SELECT name, balance FROM balances ORDER BY balance DESC
     """)
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Group "วี" and "พร" into "ครอบครัว วี & พร"
     grouped_balances = []
     family_balance = 0
     has_family = False
@@ -99,7 +94,6 @@ def get_all_balances():
     if has_family:
         grouped_balances.append(("วี & พร", family_balance))
 
-    # Re-sort by balance descending
     grouped_balances.sort(key=lambda x: x[1], reverse=True)
     return grouped_balances
 
@@ -107,19 +101,14 @@ def process_payment(payer, payee, amount):
     with closing(get_conn()) as conn:
         with conn:
             with conn.cursor() as cur:
-                # คนจ่ายหนี้ (ยอดติดลบต้องบวกกลับให้เป็น 0)
                 cur.execute("""
                     INSERT INTO balances(name, balance) VALUES (%s, %s)
                     ON CONFLICT(name) DO UPDATE SET balance = balances.balance + %s
                 """, (payer, amount, amount))
-
-                # คนรับเงินคืน (ยอดเครดิตต้องถูกหักลบออก)
                 cur.execute("""
                     INSERT INTO balances(name, balance) VALUES (%s, %s)
                     ON CONFLICT(name) DO UPDATE SET balance = balances.balance - %s
                 """, (payee, -amount, amount))
-
-                # Record payment in payment_history
                 cur.execute("""
                     INSERT INTO payment_history(payer, payee, amount)
                     VALUES (%s, %s, %s)
@@ -129,17 +118,8 @@ def update_balance(name, amount):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-INSERT INTO balances(
-    name,
-    balance
-)
-VALUES(
-    %s,
-    %s
-)
-ON CONFLICT(name)
-DO UPDATE SET
-balance = balances.balance + %s
+INSERT INTO balances(name, balance) VALUES(%s, %s)
+ON CONFLICT(name) DO UPDATE SET balance = balances.balance + %s
 """,(name, amount, amount))
     conn.commit()
     cur.close()
@@ -150,101 +130,25 @@ def save_round_with_balances(players, court_cost, shuttle_cost, court_payer, shu
         with conn:
             with conn.cursor() as cur:
                 for name, amount in result.items():
-                    # ถ้าชื่อเริ่มด้วย G ให้ข้ามการบันทึกลงตารางยอดสะสม
                     if name.upper().startswith("G"):
                         continue
-                    
                     cur.execute("""
-INSERT INTO balances(
-    name,
-    balance
-)
-VALUES(
-    %s,
-    %s
-)
-ON CONFLICT(name)
-DO UPDATE SET
-balance = balances.balance + %s
+INSERT INTO balances(name, balance) VALUES(%s, %s)
+ON CONFLICT(name) DO UPDATE SET balance = balances.balance + %s
 """,(name, amount, amount))
 
                 cur.execute("""
 INSERT INTO rounds(
-    players,
-    court_cost,
-    shuttle_cost,
-    court_payer,
-    shuttle_payer,
-    share,
-    "result",
-    comment
-)
-VALUES(
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s
-)
+    players, court_cost, shuttle_cost, court_payer, shuttle_payer, share, "result", comment
+) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
 """,(
-    json_value(players),
-    court_cost,
-    shuttle_cost,
-    court_payer,
-    shuttle_payer,
-    share,
-    json_value(result),
-    comment
+    json_value(players), court_cost, shuttle_cost, court_payer, shuttle_payer, share, json_value(result), comment
 ))
 
 def reset_all_balances():
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("""
-    UPDATE balances
-    SET balance = 0
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def save_round(players, court_cost, shuttle_cost, court_payer, shuttle_payer, share, result, comment):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-INSERT INTO rounds(
-    players,
-    court_cost,
-    shuttle_cost,
-    court_payer,
-    shuttle_payer,
-    share,
-    "result",
-    comment
-)
-VALUES(
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s,
-    %s
-)
-""",(
-    json_value(players),
-    court_cost,
-    shuttle_cost,
-    court_payer,
-    shuttle_payer,
-    share,
-    json_value(result),
-    comment
-))
+    cur.execute("UPDATE balances SET balance = 0")
     conn.commit()
     cur.close()
     conn.close()
@@ -253,19 +157,8 @@ def get_latest_round():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-    SELECT
-    created_at,
-    players,
-    court_cost,
-    shuttle_cost,
-    court_payer,
-    shuttle_payer,
-    share,
-    "result",
-    comment
-    FROM rounds
-    ORDER BY id DESC
-    LIMIT 1
+    SELECT created_at, players, court_cost, shuttle_cost, court_payer, shuttle_payer, share, "result", comment
+    FROM rounds ORDER BY id DESC LIMIT 1
     """)
     row = cur.fetchone()
     cur.close()
@@ -275,18 +168,9 @@ def get_latest_round():
         return None
 
     created_at, players_json, court_cost, shuttle_cost, court_payer, shuttle_payer, share, result_json, comment = row
+    players = json.loads(players_json) if isinstance(players_json, str) else players_json
+    result = json.loads(result_json) if isinstance(result_json, str) else result_json
 
-    if isinstance(players_json, str):
-        players = json.loads(players_json)
-    else:
-        players = players_json
-
-    if isinstance(result_json, str):
-        result = json.loads(result_json)
-    else:
-        result = result_json
-
-    # ปรับเวลา Database (UTC) ให้เป็นเวลาไทย (+7 ชั่วโมง)
     if isinstance(created_at, datetime):
         local_time = created_at + timedelta(hours=7)
         time_str = local_time.strftime("%d/%m/%Y %H:%M")
@@ -299,8 +183,6 @@ def get_latest_round():
             time_str = str(created_at).split('.')[0]
 
     total = court_cost + shuttle_cost
-
-    # จัดหน้าตาข้อความให้สวยงามเข้าธีม และเพิ่มรายละเอียดครบถ้วน
     text = (
         "🕘 บิลรอบล่าสุด\n"
         "━━━━━━━━━━━━\n"
@@ -317,11 +199,90 @@ def get_latest_round():
         f"• ค่าลูก: {shuttle_payer}\n\n"
         "🔄 สรุปยอด\n"
     )
-    
     for name, amount in result.items():
         icon = "🟢" if amount >= 0 else "🔴"
         sign = "+" if amount >= 0 else ""
         text += f"{icon} {name}: {sign}{amount} บาท\n"
-        
+    text += f"\n📝 หมายเหตุ: {comment}"
+    return text
+
+def get_recent_rounds(limit=5):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+    SELECT id, created_at, comment
+    FROM rounds
+    ORDER BY id DESC
+    LIMIT %s
+    """, (limit,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    results = []
+    for row in rows:
+        round_id, created_at, comment = row
+        if isinstance(created_at, datetime):
+            local_time = created_at + timedelta(hours=7)
+            time_str = local_time.strftime("%d/%m/%Y %H:%M")
+        else:
+            try:
+                time_obj = datetime.strptime(str(created_at).split('.')[0], "%Y-%m-%d %H:%M:%S")
+                local_time = time_obj + timedelta(hours=7)
+                time_str = local_time.strftime("%d/%m/%Y %H:%M")
+            except:
+                time_str = str(created_at).split('.')[0]
+        results.append({"id": round_id, "time_str": time_str, "comment": comment})
+    return results
+
+def get_round_by_id(round_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+    SELECT created_at, players, court_cost, shuttle_cost, court_payer, shuttle_payer, share, "result", comment
+    FROM rounds WHERE id = %s
+    """, (round_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row is None:
+        return None
+
+    created_at, players_json, court_cost, shuttle_cost, court_payer, shuttle_payer, share, result_json, comment = row
+    players = json.loads(players_json) if isinstance(players_json, str) else players_json
+    result = json.loads(result_json) if isinstance(result_json, str) else result_json
+
+    if isinstance(created_at, datetime):
+        local_time = created_at + timedelta(hours=7)
+        time_str = local_time.strftime("%d/%m/%Y %H:%M")
+    else:
+        try:
+            time_obj = datetime.strptime(str(created_at).split('.')[0], "%Y-%m-%d %H:%M:%S")
+            local_time = time_obj + timedelta(hours=7)
+            time_str = local_time.strftime("%d/%m/%Y %H:%M")
+        except:
+            time_str = str(created_at).split('.')[0]
+
+    total = court_cost + shuttle_cost
+    text = (
+        f"📅 บิลวันที่ {time_str}\n"
+        "━━━━━━━━━━━━\n"
+        f"👥 ผู้เล่น ({len(players)} คน)\n"
+        f"{' • '.join(players)}\n\n"
+        "💸 ค่าใช้จ่าย\n"
+        f"• ค่าคอร์ท: {court_cost} บาท\n"
+        f"• ค่าลูก: {shuttle_cost} บาท\n"
+        f"• รวมทั้งหมด: {total} บาท\n"
+        f"• เฉลี่ยคนละ: {share} บาท\n\n"
+        "💳 คนออกเงินก่อน\n"
+        f"• ค่าคอร์ท: {court_payer}\n"
+        f"• ค่าลูก: {shuttle_payer}\n\n"
+        "🔄 สรุปยอด\n"
+    )
+    for name, amount in result.items():
+        icon = "🟢" if amount >= 0 else "🔴"
+        sign = "+" if amount >= 0 else ""
+        text += f"{icon} {name}: {sign}{amount} บาท\n"
     text += f"\n📝 หมายเหตุ: {comment}"
     return text

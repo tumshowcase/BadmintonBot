@@ -94,7 +94,6 @@ def build_debt_minimization_text(balances):
 
     transactions = []
 
-    # ระบบควบรวมกระเป๋าครอบครัว วี & พร
     v_porn_balance = 0
     if "วี" in debtors: 
         v_porn_balance -= debtors["วี"]
@@ -174,7 +173,7 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-5 ทำงานเฉพาะหน้าเมนู)
+    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-6 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
     if session.get("step") == "waiting_menu_choice":
         if text == "1":
@@ -195,6 +194,10 @@ def handle_message(event):
             session = {}
         elif text == "5":
             text = "/รอบล่าสุด"
+            user_sessions[user_id] = {}
+            session = {}
+        elif text == "6":
+            text = "/ประวัติย้อนหลัง"
             user_sessions[user_id] = {}
             session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
@@ -220,6 +223,7 @@ def handle_message(event):
             "กด 3 : 🏦 ยอดสะสม\n"
             "กด 4 : 💡 แนะนำจ่าย\n"
             "กด 5 : 🕘 รอบล่าสุด\n"
+            "กด 6 : 📜 ประวัติย้อนหลัง\n"
             "กด 0 : 🔴 ออก\n\n"
             "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
@@ -229,7 +233,6 @@ def handle_message(event):
         if step or text.lower() in ["/cancel", "/ยกเลิก", "/ออก"]:
             user_sessions[user_id] = {}
             if step == "waiting_menu_choice":
-                # ปรับเป็นข้อความ Bye สวยๆ สไตล์เป็นกันเองตามบรีฟครับ
                 reply_text = (
                     "🔴 ออกจากเมนูเรียบร้อย\n"
                     "ไว้เจอกันใหม่รอบหน้าครับ Bye! 👋🏸"
@@ -264,6 +267,25 @@ def handle_message(event):
         else:
             reply_text = latest
 
+    elif text.lower() == "/ประวัติย้อนหลัง":
+        recent_rounds = get_recent_rounds(5)
+        if not recent_rounds:
+            reply_text = "ยังไม่มีประวัติการเล่นครับ"
+            user_sessions[user_id] = {}
+        else:
+            user_sessions[user_id] = {
+                "step": "waiting_history_choice",
+                "recent_rounds": recent_rounds
+            }
+            lines = ["📜 เลือกดูประวัติย้อนหลัง", "━━━━━━━━━━━━"]
+            for i, r in enumerate(recent_rounds, start=1):
+                cmt = r['comment'] if r['comment'] != '-' else 'ไม่มี'
+                lines.append(f"กด {i} : 📅 {r['time_str']} ({cmt})")
+            
+            lines.append("\n👉 พิมพ์ตัวเลขเพื่อดูรายละเอียด")
+            lines.append("กด 0 : 🔴 ออก")
+            reply_text = "\n".join(lines)
+
     elif text.lower() == "/คิดเงิน":
         user_sessions[user_id] = {"step": "player_count"}
         reply_text = (
@@ -286,6 +308,51 @@ def handle_message(event):
     # ==========================================
     # หมวดการทำงานใน Session (พิมพ์ปกติได้เลย)
     # ==========================================
+    
+    # --- ส่วนของเมนูประวัติย้อนหลัง ---
+    elif session.get("step") == "waiting_history_choice":
+        if text.isdigit():
+            choice = int(text)
+            recent_rounds = session.get("recent_rounds", [])
+            
+            if 1 <= choice <= len(recent_rounds):
+                round_id = recent_rounds[choice - 1]["id"]
+                detail_text = get_round_by_id(round_id)
+                
+                if detail_text:
+                    session["step"] = "viewing_history_detail"
+                    reply_text = (
+                        detail_text + 
+                        "\n\n━━━━━━━━━━━━\n"
+                        "กด 9 : 🔙 ย้อนกลับหน้าเลือกวัน\n"
+                        "กด 0 : 🔴 ออก"
+                    )
+                else:
+                    reply_text = "❌ ไม่พบข้อมูลรอบนี้ กรุณาลองใหม่\n(กด 0 เพื่อออก)"
+            else:
+                reply_text = f"⚠️ กรุณาเลือกตัวเลข 1-{len(recent_rounds)}\n(กด 0 เพื่อออก)"
+        else:
+            reply_text = "⚠️ กรุณาพิมพ์เป็นตัวเลข\n(กด 0 เพื่อออก)"
+            
+    elif session.get("step") == "viewing_history_detail":
+        if text == "9":
+            # จำลองการกดคำสั่ง /ประวัติย้อนหลัง อีกครั้งเพื่อกลับหน้าหลัก
+            recent_rounds = get_recent_rounds(5)
+            session["step"] = "waiting_history_choice"
+            session["recent_rounds"] = recent_rounds
+            
+            lines = ["📜 เลือกดูประวัติย้อนหลัง", "━━━━━━━━━━━━"]
+            for i, r in enumerate(recent_rounds, start=1):
+                cmt = r['comment'] if r['comment'] != '-' else 'ไม่มี'
+                lines.append(f"กด {i} : 📅 {r['time_str']} ({cmt})")
+            
+            lines.append("\n👉 พิมพ์ตัวเลขเพื่อดูรายละเอียด")
+            lines.append("กด 0 : 🔴 ออก")
+            reply_text = "\n".join(lines)
+        else:
+            reply_text = "⚠️ พิมพ์ 9 เพื่อย้อนกลับ หรือพิมพ์ 0 เพื่อออกครับ"
+
+    # --- ส่วนของการจ่ายเงิน ---
     elif session.get("step") == "wait_for_payment":
         parts = text.split()
         if len(parts) == 4 and parts[1] in ["จ่าย", "โอน"]:
@@ -356,6 +423,7 @@ def handle_message(event):
         else:
             reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อยกเลิก"
 
+    # --- ส่วนของการคิดเงิน ---
     elif session.get("step") == "player_count":
         if not text.isdigit():
             reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
