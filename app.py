@@ -105,30 +105,27 @@ def build_debt_minimization_text(balances):
     transactions = []
 
     # Handle "วี" and "พร" as a single entity if both are present
-    # The logic below ensures that if both V and Porn are debtors, their total debt is assigned to V
-    # Similarly, if both are creditors, their total credit is assigned to V
-    # If one is a debtor and the other is a creditor, their net balance is assigned to V
-
     v_porn_balance = 0
-    if "วี" in debtors: # if V owes money
+    if "วี" in debtors: 
         v_porn_balance -= debtors["วี"]
         del debtors["วี"]
-    elif "วี" in creditors: # if V is owed money
+    elif "วี" in creditors: 
         v_porn_balance += creditors["วี"]
         del creditors["วี"]
 
-    if "พร" in debtors: # if Porn owes money
+    if "พร" in debtors: 
         v_porn_balance -= debtors["พร"]
         del debtors["พร"]
-    elif "พร" in creditors: # if Porn is owed money
+    elif "พร" in creditors: 
         v_porn_balance += creditors["พร"]
         del creditors["พร"]
 
     if v_porn_balance != 0:
         if v_porn_balance < 0:
-            debtors["วี"] = -v_porn_balance
+            # ใช้ชื่อแสดงผลเป็น "วี & พร" ให้สวยงามในหน้าแนะนำจ่าย
+            debtors["วี & พร"] = -v_porn_balance
         else:
-            creditors["วี"] = v_porn_balance
+            creditors["วี & พร"] = v_porn_balance
 
     # Minimize transactions
     debtors_list = sorted(debtors.items(), key=lambda item: item[1], reverse=True)
@@ -140,7 +137,8 @@ def build_debt_minimization_text(balances):
 
         transfer_amount = min(debtor_amount, creditor_amount)
 
-        transactions.append(f"- {debtor_name} โอนให้ {creditor_name} จำนวน {transfer_amount} บาท")
+        # จัดฟอร์แมตข้อความให้สวยงาม
+        transactions.append(f"💸 {debtor_name}  ➡️  {creditor_name} : {transfer_amount} บาท")
 
         debtor_amount -= transfer_amount
         creditor_amount -= transfer_amount
@@ -151,9 +149,18 @@ def build_debt_minimization_text(balances):
             creditors_list.insert(0, (creditor_name, creditor_amount))
 
     if not transactions:
-        return "💸 สรุปการโอนเงินเคลียร์หนี้:\nไม่มีการโอนเงินที่จำเป็น"
+        return (
+            "💡 แนะนำการโอนเงิน\n"
+            "━━━━━━━━━━━━\n"
+            "✅ ตอนนี้ทุกคนเคลียร์ยอดครบหมดแล้วครับ!"
+        )
 
-    return "💸 สรุปการโอนเงินเคลียร์หนี้:\n" + "\n".join(transactions)
+    return (
+        "💡 แนะนำการโอนเงิน\n"
+        "━━━━━━━━━━━━\n"
+        + "\n".join(transactions) +
+        "\n\n✨ (โอนตามนี้เพื่อจบหนี้ไวที่สุด)"
+    )
 
 
 @app.route("/")
@@ -194,11 +201,12 @@ def handle_message(event):
             "คิดเงิน\n"
             "ยอดสะสม\n"
             "รอบล่าสุด\n"
+            "แนะนำจ่าย\n"
             "reset\n"
             "reset balance"
         )
 
-    elif text.lower() == "no":
+    elif text.lower() == "no" or text.lower() == "reset":
 
         user_sessions[user_id] = {}
 
@@ -221,7 +229,7 @@ def handle_message(event):
             f"{balance_text}"
         )
 
-    elif text.lower() == "เคลียร์หนี้":
+    elif text.lower() == "แนะนำจ่าย":
 
         reply_text = build_debt_minimization_text(get_all_balances())
 
@@ -272,18 +280,30 @@ def handle_message(event):
                     "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
                     "(พิมพ์ no เพื่อยกเลิก)"
                 )
-            elif not amount_str.isdigit():
-                reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขเท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
             else:
-                session["payment_payer"] = payer
-                session["payment_payee"] = payee
-                session["payment_amount"] = int(amount_str)
-                session["step"] = "confirm_payment"
+                check_payer = "วี" if payer == "พร" else payer
+                check_payee = "วี" if payee == "พร" else payee
 
-                reply_text = (
-                    f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
-                    "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
-                )
+                if payer == payee:
+                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
+                elif check_payer == check_payee:
+                    reply_text = (
+                        "⚠️ รายการนี้ไม่มีผลต่อยอดสะสม\n\n"
+                        "เนื่องจาก วี และ พร ถูกนับเป็นครอบครัวเดียวกัน\n"
+                        "(พิมพ์ no เพื่อยกเลิก)"
+                    )
+                elif not amount_str.isdigit() or int(amount_str) <= 0:
+                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
+                else:
+                    session["payment_payer"] = payer
+                    session["payment_payee"] = payee
+                    session["payment_amount"] = int(amount_str)
+                    session["step"] = "confirm_payment"
+
+                    reply_text = (
+                        f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
+                        "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
+                    )
         else:
             reply_text = (
                 "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
@@ -305,13 +325,14 @@ def handle_message(event):
             try:
                 process_payment(db_payer, db_payee, amount)
                 balances = get_all_balances()
+                balance_text = build_balance_text(balances)
 
                 reply_text = (
                     "✅ บันทึกการโอนเงินเรียบร้อย\n"
                     f"💸 {payer} โอนให้ {payee} จำนวน {amount} บาท\n\n"
                     "🏦 ยอดสะสมล่าสุด\n"
                     "━━━━━━━━━━━━\n"
-                    f"{build_balance_text(balances)}"
+                    f"{balance_text}"
                 )
                 user_sessions[user_id] = {}
             except Exception as e:
@@ -323,15 +344,6 @@ def handle_message(event):
             reply_text = "ยกเลิกรายการแล้ว"
         else:
             reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือ no เพื่อยกเลิก"
-
-        user_sessions[user_id] = {
-            "step": "player_count"
-        }
-
-        reply_text = (
-            "🏸 วันนี้มีกี่คน?\n\n"
-            "กรุณาพิมพ์เป็นตัวเลข"
-        )
 
     elif session.get("step") == "player_count":
 
@@ -542,7 +554,7 @@ def handle_message(event):
             f"• ค่าลูก: {session['shuttle_payer']}\n\n"
             f"📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
-            "↩️ พิมพ์ on เพื่อยกเลิก"
+            "↩️ พิมพ์ no เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
