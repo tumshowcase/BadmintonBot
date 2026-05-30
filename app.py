@@ -194,11 +194,11 @@ def handle_message(event):
             "คิดเงิน\n"
             "ยอดทั้งหมด\n"
             "รอบล่าสุด\n"
-            "reset\n"
+            "เคลียร์หนี้\n"
             "reset balance"
         )
 
-    elif text.lower() == "reset":
+    elif text.lower() == "no":
 
         user_sessions[user_id] = {}
 
@@ -243,6 +243,84 @@ def handle_message(event):
             "🏸 วันนี้มีกี่คน?\n\n"
             "กรุณาพิมพ์เป็นตัวเลข"
         )
+
+    elif text.lower() == "จ่ายเงิน":
+
+        user_sessions[user_id] = {
+            "step": "wait_for_payment"
+        }
+
+        reply_text = (
+            "พิมพ์รูปแบบ: [ใคร] จ่าย [ใคร] [เท่าไร]\n"
+            "เช่น: วี จ่าย ตั้ม 100\n"
+            "(พิมพ์ no เพื่อยกเลิก)"
+        )
+
+    elif session.get("step") == "wait_for_payment":
+
+        parts = text.split()
+
+        if len(parts) == 4 and parts[1] in ["จ่าย", "โอน"]:
+            payer = parts[0]
+            payee = parts[2]
+            amount_str = parts[3]
+
+            if payer not in default_members or payee not in default_members:
+                reply_text = (
+                    "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
+                    "(พิมพ์ no เพื่อยกเลิก)"
+                )
+            elif not amount_str.isdigit():
+                reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขเท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
+            else:
+                session["payment_payer"] = payer
+                session["payment_payee"] = payee
+                session["payment_amount"] = int(amount_str)
+                session["step"] = "confirm_payment"
+
+                reply_text = (
+                    f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
+                    "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
+                )
+        else:
+            reply_text = (
+                "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
+                "เช่น: วี จ่าย ตั้ม 100\n"
+                "(พิมพ์ no เพื่อยกเลิก)"
+            )
+
+    elif session.get("step") == "confirm_payment":
+
+        if text.lower() == "ok":
+            payer = session["payment_payer"]
+            payee = session["payment_payee"]
+            amount = session["payment_amount"]
+
+            # ระบบแปลงชื่อ พร เป็น วี อัตโนมัติเวลาบันทึกยอด
+            db_payer = "วี" if payer == "พร" else payer
+            db_payee = "วี" if payee == "พร" else payee
+
+            try:
+                process_payment(db_payer, db_payee, amount)
+                balances = get_all_balances()
+
+                reply_text = (
+                    "✅ บันทึกการโอนเงินเรียบร้อย\n"
+                    f"💸 {payer} โอนให้ {payee} จำนวน {amount} บาท\n\n"
+                    "🏦 ยอดสะสมล่าสุด\n"
+                    "━━━━━━━━━━━━\n"
+                    f"{build_balance_text(balances)}"
+                )
+                user_sessions[user_id] = {}
+            except Exception as e:
+                reply_text = "❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"
+                user_sessions[user_id] = {}
+
+        elif text.lower() == "no":
+            user_sessions[user_id] = {}
+            reply_text = "ยกเลิกรายการแล้ว"
+        else:
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือ no เพื่อยกเลิก"
 
     elif session.get("step") == "player_count":
 
@@ -453,7 +531,7 @@ def handle_message(event):
             f"• ค่าลูก: {session['shuttle_payer']}\n\n"
             f"📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
-            "↩️ พิมพ์ reset เพื่อยกเลิก"
+            "↩️ พิมพ์ no เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
@@ -466,7 +544,7 @@ def handle_message(event):
 
             reply_text = (
                 "พิมพ์ ok เพื่อยืนยัน\n"
-                "หรือ reset เพื่อยกเลิก"
+                "หรือ no เพื่อยกเลิก"
             )
 
         else:
@@ -528,7 +606,7 @@ def handle_message(event):
 
                 reply_text = (
                     "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\n"
-                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ reset เพื่อยกเลิก"
+                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ no เพื่อยกเลิก"
                 )
 
                 with ApiClient(configuration) as api_client:
