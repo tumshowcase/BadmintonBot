@@ -276,19 +276,32 @@ def handle_message(event):
         try:
             numbers = text.split()
             selected_players = []
+            allowed_guests = ["G1", "G2", "G3", "G4", "G5"]
 
             for n in numbers:
-                # ถ้าพิมพ์ G นำหน้า (เช่น G1, g2) ให้เก็บชื่อนั้นไปเลย
-                if n.upper().startswith("G"):
-                    selected_players.append(n.upper())
-                # ถ้าเป็นตัวเลข ให้ไปดึงชื่อจาก default_members
+                val = n.upper()
+                
+                # 1. เช็กว่าเป็นขาจร (G) ไหม
+                if val.startswith("G"):
+                    if val not in allowed_guests:
+                        raise Exception("guest_error")
+                    if val in selected_players:
+                        raise Exception("duplicate_error")
+                    selected_players.append(val)
+                    
+                # 2. เช็กว่าเป็นตัวเลขสมาชิกหลักไหม
                 elif n.isdigit():
                     i = int(n)
                     if i < 1 or i > len(default_members):
-                        raise Exception()
-                    selected_players.append(default_members[i - 1])
+                        raise Exception("index_error")
+                    
+                    member_name = default_members[i - 1]
+                    if member_name in selected_players:
+                        raise Exception("duplicate_error")
+                    selected_players.append(member_name)
+                    
                 else:
-                    raise Exception()
+                    raise Exception("format_error")
 
             if len(selected_players) != session["player_count"]:
                 reply_text = (
@@ -300,11 +313,19 @@ def handle_message(event):
                 session["step"] = "court_cost"
                 reply_text = "🏸 ค่าคอร์ท (บาท)"
 
-        except:
+        except Exception as e:
+            err = str(e)
+            if err == "duplicate_error":
+                alert_msg = "⚠️ ห้ามใส่ชื่อคนเล่นซ้ำกันครับ"
+            elif err == "guest_error":
+                alert_msg = "⚠️ ขาจรใช้ได้แค่ G1, G2, G3, G4, G5 เท่านั้นครับ"
+            else:
+                alert_msg = "⚠️ กรุณาพิมพ์รูปแบบให้ถูกต้อง"
+
             reply_text = (
-                "กรุณาพิมพ์เลขผู้เล่น หรือพิมพ์ G สำหรับขาจรให้ถูกต้อง\n\n"
+                f"{alert_msg}\n\n"
                 f"{build_player_list(default_members)}\n\n"
-                "เช่น: 1 2 3 G1"
+                "ตัวอย่างที่ถูกต้อง: 1 2 3 G1 G2"
             )
 
     elif session.get("step") == "court_cost":
