@@ -255,6 +255,12 @@ def get_latest_round():
     cur.execute("""
     SELECT
     created_at,
+    players,
+    court_cost,
+    shuttle_cost,
+    court_payer,
+    shuttle_payer,
+    share,
     "result",
     comment
     FROM rounds
@@ -268,7 +274,12 @@ def get_latest_round():
     if row is None:
         return None
 
-    created_at, result_json, comment = row
+    created_at, players_json, court_cost, shuttle_cost, court_payer, shuttle_payer, share, result_json, comment = row
+
+    if isinstance(players_json, str):
+        players = json.loads(players_json)
+    else:
+        players = players_json
 
     if isinstance(result_json, str):
         result = json.loads(result_json)
@@ -287,11 +298,24 @@ def get_latest_round():
         except:
             time_str = str(created_at).split('.')[0]
 
-    # จัดหน้าตาข้อความให้สวยงามเข้าธีม
+    total = court_cost + shuttle_cost
+
+    # จัดหน้าตาข้อความให้สวยงามเข้าธีม และเพิ่มรายละเอียดครบถ้วน
     text = (
         "🕘 บิลรอบล่าสุด\n"
         "━━━━━━━━━━━━\n"
         f"📅 {time_str}\n\n"
+        f"👥 ผู้เล่น ({len(players)} คน)\n"
+        f"{' • '.join(players)}\n\n"
+        "💸 ค่าใช้จ่าย\n"
+        f"• ค่าคอร์ท: {court_cost} บาท\n"
+        f"• ค่าลูก: {shuttle_cost} บาท\n"
+        f"• รวมทั้งหมด: {total} บาท\n"
+        f"• เฉลี่ยคนละ: {share} บาท\n\n"
+        "💳 คนออกเงินก่อน\n"
+        f"• ค่าคอร์ท: {court_payer}\n"
+        f"• ค่าลูก: {shuttle_payer}\n\n"
+        "🔄 สรุปยอด\n"
     )
     
     for name, amount in result.items():
