@@ -193,7 +193,7 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบคีย์ลัดอัจฉริยะ (ดักจับตามสถานะเท่านั้น)
+    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-6 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
     
     # 1. จัดการเมื่อบอทกำลัง "รอให้เลือกเมนู"
@@ -224,13 +224,14 @@ def handle_message(event):
             session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
             text = "/cancel"
-            # ให้หลุดลงไปเข้าเงื่อนไขยกเลิกด้านล่างเพื่อส่งข้อความ "ยกเลิกรายการ"
+            # ปล่อยให้ข้อความไหลไปเข้าเงื่อนไขยกเลิกด้านล่าง
         else:
-            # ถ้าพิมพ์อะไรแปลกๆ มาตอนหน้าเมนู ให้พับเมนูเก็บเงียบๆ (ถือว่าคุยเล่น)
+            # ถ้าพิมพ์ข้อความอื่นๆ ที่ไม่ใช่ 1-6 ให้พับหน้าเมนูเก็บแบบเงียบๆ ไม่ต้องตอบโต้ (ป้องกันกวนแชท)
             user_sessions[user_id] = {}
             session = {}
+            return "OK", 200
 
-    # 2. คีย์ลัด 0 สำหรับยกเลิกในสเต็ปอื่นๆ (เช่น กำลังกรอกยอดเงิน) จะทำงานก็ต่อเมื่อมี session ค้างอยู่เท่านั้น
+    # 2. คีย์ลัด 0 สำหรับยกเลิกในสเต็ปอื่นๆ (จะทำงานก็ต่อเมื่อมี session กรอกข้อมูลค้างอยู่)
     if text == "0" and session.get("step"):
         text = "/cancel"
 
@@ -259,7 +260,7 @@ def handle_message(event):
 
     elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
 
-        # เช็กอีกครั้งเพื่อความชัวร์ ว่ามียอดให้ยกเลิกจริงๆ
+        # เช็กความชัวร์ ว่ามี flow ให้ยกเลิกจริงๆ 
         if session.get("step") or text.lower() == "/cancel":
             user_sessions[user_id] = {}
             reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
@@ -705,16 +706,18 @@ def handle_message(event):
         # ถ้าไม่ใช่คำสั่งของบอท และไม่ได้ค้าง session อะไรอยู่ ให้จบการทำงานเงียบๆ ไม่ต้องตอบอะไร
         return "OK", 200
 
-    with ApiClient(configuration) as api_client:
-
-        line_bot_api = MessagingApi(api_client)
-
-        line_bot_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[TextMessage(text=reply_text)]
+    # ===== Safety Guard ป้องกันบอทส่งข้อความว่าง =====
+    if reply_text:
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
             )
-        )
+    
+    return "OK", 200
 
 
 if __name__ == "__main__":
