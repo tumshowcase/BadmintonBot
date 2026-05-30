@@ -330,23 +330,25 @@ def get_statistics():
     rows = cur.fetchall()
     member_stats = {}
     for players_json, share in rows:
-        # 🛠️ จุดแก้ไขป้องกัน Error: เช็กค่าว่างก่อนเอาไปประมวลผลต่อ
+        # 🛠️ ป้องกันขั้นสุด: ข้ามทันทีถ้าไม่มีข้อมูลรายชื่อในแถวนั้น
         if not players_json:
             continue
         try:
             players = json.loads(players_json) if isinstance(players_json, str) else players_json
-            if not players:
+            # เช็กว่าผลลัพธ์จากการโหลดไม่ใช่ None หรือค่าว่างที่ใช้วนลูปไม่ได้
+            if players is None:
                 continue
+            
+            for p in players:
+                if p.upper().startswith("G"):
+                    continue
+                if p not in member_stats:
+                    member_stats[p] = {"count": 0, "total_paid": 0}
+                member_stats[p]["count"] += 1
+                member_stats[p]["total_paid"] += (share or 0)
         except Exception:
+            # หากกระบวนการในลูปตัวไหนเจอบั๊กแปลกปลอม ให้ข้ามรอบนั้นไปเลย ไม่ให้ระบบล่ม
             continue
-
-        for p in players:
-            if p.upper().startswith("G"):
-                continue
-            if p not in member_stats:
-                member_stats[p] = {"count": 0, "total_paid": 0}
-            member_stats[p]["count"] += 1
-            member_stats[p]["total_paid"] += (share or 0)
             
     cur.close()
     conn.close()
