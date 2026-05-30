@@ -3,6 +3,7 @@ import psycopg2
 import json
 from contextlib import closing
 from psycopg2.extras import Json
+from datetime import datetime, timedelta
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -149,10 +150,10 @@ def save_round_with_balances(players, court_cost, shuttle_cost, court_payer, shu
         with conn:
             with conn.cursor() as cur:
                 for name, amount in result.items():
-                    # --- เพิ่มเงื่อนไขบรรทัดนี้: ถ้าชื่อเริ่มด้วย G ให้ข้ามไปเลย ---
+                    # ถ้าชื่อเริ่มด้วย G ให้ข้ามการบันทึกลงตารางยอดสะสม
                     if name.upper().startswith("G"):
                         continue
-                    # --------------------------------------------------
+                    
                     cur.execute("""
 INSERT INTO balances(
     name,
@@ -274,9 +275,29 @@ def get_latest_round():
     else:
         result = result_json
 
-    text = f"📅 {created_at}\n\n"
+    # ปรับเวลา Database (UTC) ให้เป็นเวลาไทย (+7 ชั่วโมง)
+    if isinstance(created_at, datetime):
+        local_time = created_at + timedelta(hours=7)
+        time_str = local_time.strftime("%d/%m/%Y %H:%M")
+    else:
+        try:
+            time_obj = datetime.strptime(str(created_at).split('.')[0], "%Y-%m-%d %H:%M:%S")
+            local_time = time_obj + timedelta(hours=7)
+            time_str = local_time.strftime("%d/%m/%Y %H:%M")
+        except:
+            time_str = str(created_at).split('.')[0]
+
+    # จัดหน้าตาข้อความให้สวยงามเข้าธีม
+    text = (
+        "🕘 บิลรอบล่าสุด\n"
+        "━━━━━━━━━━━━\n"
+        f"📅 {time_str}\n\n"
+    )
+    
     for name, amount in result.items():
+        icon = "🟢" if amount >= 0 else "🔴"
         sign = "+" if amount >= 0 else ""
-        text += f"{name}: {sign}{amount} บาท\n"
+        text += f"{icon} {name}: {sign}{amount} บาท\n"
+        
     text += f"\n📝 หมายเหตุ: {comment}"
     return text
