@@ -174,7 +174,7 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-6 ทำงานเฉพาะหน้าเมนู)
+    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-5 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
     if session.get("step") == "waiting_menu_choice":
         if text == "1":
@@ -197,11 +197,7 @@ def handle_message(event):
             text = "/รอบล่าสุด"
             user_sessions[user_id] = {}
             session = {}
-        elif text == "6":
-            text = "/เมนู"
-            user_sessions[user_id] = {}
-            session = {}
-        elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
+        elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
             text = "/cancel"
         else:
             user_sessions[user_id] = {}
@@ -224,15 +220,22 @@ def handle_message(event):
             "กด 3 : 🏦 ยอดสะสม\n"
             "กด 4 : 💡 แนะนำจ่าย\n"
             "กด 5 : 🕘 รอบล่าสุด\n"
-            "กด 6 : 📋 เรียกดูเมนู\n"
-            "กด 0 : ❌ ยกเลิกรายการ\n\n"
+            "กด 0 : 🔴 ออก\n\n"
             "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
 
-    elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
-        if session.get("step") or text.lower() == "/cancel":
+    elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
+        step = session.get("step")
+        if step or text.lower() in ["/cancel", "/ยกเลิก", "/ออก"]:
             user_sessions[user_id] = {}
-            reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
+            if step == "waiting_menu_choice":
+                # ปรับเป็นข้อความ Bye สวยๆ สไตล์เป็นกันเองตามบรีฟครับ
+                reply_text = (
+                    "🔴 ออกจากเมนูเรียบร้อย\n"
+                    "ไว้เจอกันใหม่รอบหน้าครับ Bye! 👋🏸"
+                )
+            else:
+                reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
         else:
             return "OK", 200
 
@@ -417,7 +420,6 @@ def handle_message(event):
                 "(พิมพ์ 0 เพื่อยกเลิก)"
             )
 
-    # ปรับ Flow: ค่าคอร์ท -> คนจ่ายคอร์ท -> ค่าลูก -> คนจ่ายลูก
     elif session.get("step") == "court_cost":
         if not text.isdigit():
             reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
@@ -467,7 +469,6 @@ def handle_message(event):
             else:
                 session["shuttle_payer"] = players[index - 1]
                 
-                # Check ว่ารอบนี้มี Guest (G1-G5) เล่นด้วยไหม
                 has_guest = any(p.startswith("G") for p in players)
                 if has_guest:
                     session["step"] = "guest_collector"
@@ -546,7 +547,6 @@ def handle_message(event):
             result_lines = []
             round_result = {}
 
-            # คำนวณยอดดิบเบื้องต้น
             for player in players:
                 amount = -share
                 if player == court_payer:
@@ -555,17 +555,12 @@ def handle_message(event):
                     amount += shuttle_cost
                 round_result[player] = amount
 
-            # ถ้ารอบนี้มีการเก็บเงินขาจร (Guest Debt Transfer)
             if "guest_collector" in session:
                 guest_debt = 0
                 collector = session["guest_collector"]
-                
-                # รวมยอดหนี้ของขาจรทั้งหมด
                 for p, amt in round_result.items():
                     if p.startswith("G"):
                         guest_debt += amt
-                
-                # โยนหนี้ก้อนนี้ไปให้คนที่รับเงินสดมา (ยอดติดลบของคนนั้นจะเพิ่มขึ้นตามเงินสดที่ถือไว้)
                 round_result[collector] += guest_debt
 
             try:
@@ -597,7 +592,6 @@ def handle_message(event):
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
             latest_round_text = build_round_result_text(round_result)
             
-            # เพิ่มข้อความอธิบายให้เพื่อนในกลุ่มเข้าใจง่ายขึ้น
             if "guest_collector" in session:
                 latest_round_text += f"\n\n*(ยอดของ {session['guest_collector']} ได้รวมการรับเงินสดจากขาจรแล้ว)*"
 
