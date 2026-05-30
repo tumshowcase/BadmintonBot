@@ -286,3 +286,28 @@ def get_round_by_id(round_id):
         text += f"{icon} {name}: {sign}{amount} บาท\n"
     text += f"\n📝 หมายเหตุ: {comment}"
     return text
+
+def undo_latest_round():
+    with closing(get_conn()) as conn:
+        with conn:
+            with conn.cursor() as cur:
+                # 1. ดึงข้อมูลรอบล่าสุด
+                cur.execute('SELECT id, "result" FROM rounds ORDER BY id DESC LIMIT 1')
+                row = cur.fetchone()
+                if not row:
+                    return False
+                
+                round_id, result_json = row
+                result = json.loads(result_json) if isinstance(result_json, str) else result_json
+
+                # 2. คืนยอดสะสมให้ทุกคน (บวกกลับด้วยค่าที่เคยถูกหัก หรือหักด้วยค่าที่เคยได้)
+                for name, amount in result.items():
+                    if name.upper().startswith("G"):
+                        continue
+                    cur.execute("""
+                        UPDATE balances SET balance = balance - %s WHERE name = %s
+                    """, (amount, name))
+
+                # 3. ลบบิลนั้นทิ้งไป
+                cur.execute("DELETE FROM rounds WHERE id = %s", (round_id,))
+                return True

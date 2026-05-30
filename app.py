@@ -173,7 +173,7 @@ def handle_message(event):
     session = user_sessions[user_id]
 
     # ==========================================
-    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-6 ทำงานเฉพาะหน้าเมนู)
+    # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-7 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
     if session.get("step") == "waiting_menu_choice":
         if text == "1":
@@ -200,6 +200,10 @@ def handle_message(event):
             text = "/ประวัติย้อนหลัง"
             user_sessions[user_id] = {}
             session = {}
+        elif text == "7":
+            text = "/ยกเลิกรอบล่าสุด"
+            user_sessions[user_id] = {}
+            session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no", "ออก", "/ออก"]:
             text = "/cancel"
         else:
@@ -224,6 +228,7 @@ def handle_message(event):
             "กด 4 : 💡 แนะนำจ่าย\n"
             "กด 5 : 🕘 รอบล่าสุด\n"
             "กด 6 : 📜 ประวัติย้อนหลัง\n"
+            "กด 7 : ⏪ ยกเลิกรอบล่าสุด\n"
             "กด 0 : 🔴 ออก\n\n"
             "👉 พิมพ์ตัวเลขเพื่อสั่งงานได้เลยครับ"
         )
@@ -232,8 +237,7 @@ def handle_message(event):
         step = session.get("step")
         if step or text.lower() in ["/cancel", "/ยกเลิก", "/ออก"]:
             user_sessions[user_id] = {}
-            # รวมการกดออกของหน้าเมนูหลัก และเมนูประวัติย้อนหลังให้ใช้ข้อความบอกลาสวยๆ
-            if step in ["waiting_menu_choice", "waiting_history_choice", "viewing_history_detail"]:
+            if step in ["waiting_menu_choice", "waiting_history_choice", "viewing_history_detail", "confirm_undo"]:
                 reply_text = (
                     "🔴 ออกจากเมนูเรียบร้อย\n"
                     "ไว้เจอกันใหม่รอบหน้าครับ Bye! 👋🏸"
@@ -267,6 +271,22 @@ def handle_message(event):
             reply_text = "ยังไม่มีข้อมูล"
         else:
             reply_text = latest
+
+    elif text.lower() == "/ยกเลิกรอบล่าสุด":
+        latest_text = get_latest_round()
+        if not latest_text:
+            reply_text = "ไม่มีบิลให้ยกเลิกครับ"
+        else:
+            user_sessions[user_id] = {"step": "confirm_undo"}
+            preview_text = latest_text.replace("🕘 บิลรอบล่าสุด", "📌 บิลที่จะถูกยกเลิก")
+            reply_text = (
+                "⚠️ คุณต้องการยกเลิกบิลนี้ใช่หรือไม่?\n"
+                "━━━━━━━━━━━━\n"
+                f"{preview_text}\n\n"
+                "🚨 คำเตือน: ยอดสะสมของทุกคนจะถูกหักออกและกลับไปเป็นค่าเดิม\n\n"
+                "👉 พิมพ์ ok เพื่อยืนยัน\n"
+                "🔴 พิมพ์ 0 เพื่อออก"
+            )
 
     elif text.lower() == "/ประวัติย้อนหลัง":
         recent_rounds = get_recent_rounds(5)
@@ -310,6 +330,18 @@ def handle_message(event):
     # หมวดการทำงานใน Session (พิมพ์ปกติได้เลย)
     # ==========================================
     
+    # --- ส่วนของการยืนยันยกเลิกรอบล่าสุด ---
+    elif session.get("step") == "confirm_undo":
+        if text.lower() == "ok":
+            success = undo_latest_round()
+            if success:
+                reply_text = "✅ ยกเลิกรอบล่าสุดและคืนยอดเรียบร้อยแล้ว"
+            else:
+                reply_text = "❌ ไม่พบข้อมูลบิลให้ยกเลิกครับ"
+            user_sessions[user_id] = {}
+        else:
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อออกครับ"
+
     # --- ส่วนของเมนูประวัติย้อนหลัง ---
     elif session.get("step") == "waiting_history_choice":
         if text.isdigit():
