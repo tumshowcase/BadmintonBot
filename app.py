@@ -571,10 +571,13 @@ def handle_message(event):
                 
                 has_guest = any(p.startswith("G") for p in players)
                 if has_guest:
+                    # คัดเอาเฉพาะชื่อสมาชิกหลัก (ไม่เอา G) มาเป็นตัวเลือกคนเก็บเงิน
+                    main_players = [p for p in players if not p.startswith("G")]
+                    session["main_players"] = main_players
                     session["step"] = "guest_collector"
                     reply_text = (
                         "🙋‍♂️ ขาจร (Guest) จ่ายเงินให้ใคร?\n\n"
-                        f"{build_player_list(players)}\n\n"
+                        f"{build_player_list(main_players)}\n\n"
                         "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
                     )
                 else:
@@ -582,24 +585,18 @@ def handle_message(event):
                     reply_text = "📝 หมายเหตุ\n\nถ้าไม่มี พิมพ์ -\n(พิมพ์ 0 เพื่อยกเลิก)"
 
     elif session.get("step") == "guest_collector":
+        main_players = session.get("main_players", [])
         if not text.isdigit():
-            reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(session['players'])}"
+            reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(main_players)}"
         else:
             index = int(text)
-            players = session["players"]
-            if index < 1 or index > len(players):
-                reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(players)}"
+            if index < 1 or index > len(main_players):
+                reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(main_players)}"
             else:
-                selected = players[index - 1]
-                if selected.startswith("G"):
-                    reply_text = (
-                        "⚠️ ขาจรเก็บเงินเข้าตัวเองไม่ได้ครับ กรุณาเลือกสมาชิกหลัก\n\n"
-                        f"{build_player_list(players)}"
-                    )
-                else:
-                    session["guest_collector"] = selected
-                    session["step"] = "comment"
-                    reply_text = "📝 หมายเหตุ\n\nถ้าไม่มี พิมพ์ -\n(พิมพ์ 0 เพื่อยกเลิก)"
+                selected = main_players[index - 1]
+                session["guest_collector"] = selected
+                session["step"] = "comment"
+                reply_text = "📝 หมายเหตุ\n\nถ้าไม่มี พิมพ์ -\n(พิมพ์ 0 เพื่อยกเลิก)"
 
     elif session.get("step") == "comment":
         session["comment"] = text
