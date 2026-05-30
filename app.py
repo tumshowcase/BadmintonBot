@@ -53,58 +53,48 @@ def thailand_time():
 
 def build_player_list(players):
     result = ""
-
     for i, name in enumerate(players, start=1):
         result += f"{i}. {name}\n"
-
     return result.strip()
 
 
 def format_round_amount(amount):
     if amount >= 0:
         return f"+{amount} บาท"
-
     return f"-{abs(amount)} บาท"
 
 
 def format_balance_amount(amount):
     if amount >= 0:
         return f"เครดิต +{amount} บาท"
-
     return f"ค้างจ่าย {abs(amount)} บาท"
 
 
 def build_round_result_text(result):
     lines = []
-
     for name, amount in result.items():
         icon = "🟢" if amount >= 0 else "🔴"
         lines.append(f"{icon} {name}: {format_round_amount(amount)}")
-
     return "\n".join(lines)
 
 
 def build_balance_text(balances):
     lines = []
-
     for i, (name, balance) in enumerate(balances, start=1):
         rank = f"{i}."
-
         icon = "🟢" if balance >= 0 else "🔴"
         lines.append(f"{rank} {icon} {name}: {format_balance_amount(balance)}")
-
     return "\n".join(lines)
 
 
 def build_debt_minimization_text(balances):
     lines = []
-    # Separate people who owe and people who are owed
     debtors = {name: -balance for name, balance in balances if balance < 0}
     creditors = {name: balance for name, balance in balances if balance > 0}
 
     transactions = []
 
-    # Handle "วี" and "พร" as a single entity if both are present
+    # ระบบควบรวมกระเป๋าครอบครัว วี & พร
     v_porn_balance = 0
     if "วี" in debtors: 
         v_porn_balance -= debtors["วี"]
@@ -126,7 +116,6 @@ def build_debt_minimization_text(balances):
         else:
             creditors["วี & พร"] = v_porn_balance
 
-    # Minimize transactions
     debtors_list = sorted(debtors.items(), key=lambda item: item[1], reverse=True)
     creditors_list = sorted(creditors.items(), key=lambda item: item[1], reverse=True)
 
@@ -135,7 +124,6 @@ def build_debt_minimization_text(balances):
         creditor_name, creditor_amount = creditors_list.pop(0)
 
         transfer_amount = min(debtor_amount, creditor_amount)
-
         transactions.append(f"💸 {debtor_name}  ➡️  {creditor_name} : {transfer_amount} บาท")
 
         debtor_amount -= transfer_amount
@@ -168,23 +156,16 @@ def home():
 
 @app.route("/callback", methods=["POST"])
 def callback():
-
     signature = request.headers["X-Line-Signature"]
-
     body = request.get_data(as_text=True)
-
     handler.handle(body, signature)
-
     return "OK"
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
-
     user_id = event.source.user_id
-
     text = event.message.text.strip()
-
     reply_text = ""
 
     if user_id not in user_sessions:
@@ -195,8 +176,6 @@ def handle_message(event):
     # ==========================================
     # ระบบคีย์ลัดอัจฉริยะ (ตัวเลข 1-6 ทำงานเฉพาะหน้าเมนู)
     # ==========================================
-    
-    # 1. จัดการเมื่อบอทกำลัง "รอให้เลือกเมนู"
     if session.get("step") == "waiting_menu_choice":
         if text == "1":
             text = "/คิดเงิน"
@@ -224,27 +203,19 @@ def handle_message(event):
             session = {}
         elif text == "0" or text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
             text = "/cancel"
-            # ปล่อยให้ข้อความไหลไปเข้าเงื่อนไขยกเลิกด้านล่าง
         else:
-            # ถ้าพิมพ์ข้อความอื่นๆ ที่ไม่ใช่ 1-6 ให้พับหน้าเมนูเก็บแบบเงียบๆ ไม่ต้องตอบโต้ (ป้องกันกวนแชท)
             user_sessions[user_id] = {}
             session = {}
             return "OK", 200
 
-    # 2. คีย์ลัด 0 สำหรับยกเลิกในสเต็ปอื่นๆ (จะทำงานก็ต่อเมื่อมี session กรอกข้อมูลค้างอยู่)
     if text == "0" and session.get("step"):
         text = "/cancel"
 
     # ==========================================
     # หมวดคำสั่งหลัก
     # ==========================================
-
     if text.lower() in ["/เมนู", "/menu", "เมนู", "menu"]:
-
-        user_sessions[user_id] = {
-            "step": "waiting_menu_choice"
-        }
-
+        user_sessions[user_id] = {"step": "waiting_menu_choice"}
         reply_text = (
             "🏸 ระบบจัดการก๊วนแบด\n"
             "━━━━━━━━━━━━\n"
@@ -259,8 +230,6 @@ def handle_message(event):
         )
 
     elif text.lower() in ["cancel", "/cancel", "ยกเลิก", "/ยกเลิก", "no", "/no"]:
-
-        # เช็กความชัวร์ ว่ามี flow ให้ยกเลิกจริงๆ 
         if session.get("step") or text.lower() == "/cancel":
             user_sessions[user_id] = {}
             reply_text = "❌ ยกเลิกรายการเรียบร้อยแล้ว"
@@ -268,17 +237,13 @@ def handle_message(event):
             return "OK", 200
 
     elif text.lower() == "/reset balance":
-
         reset_all_balances()
-
         reply_text = "ล้างยอดสะสมทั้งหมดแล้ว"
 
     elif text.lower() == "/ยอดสะสม":
-
         balances = get_all_balances()
         balance_text = build_balance_text(balances)
         debt_text = build_debt_minimization_text(balances)
-
         reply_text = (
             "🏦 ยอดสะสม\n"
             "━━━━━━━━━━━━\n"
@@ -287,25 +252,17 @@ def handle_message(event):
         )
 
     elif text.lower() == "/แนะนำจ่าย":
-
         reply_text = build_debt_minimization_text(get_all_balances())
 
     elif text.lower() == "/รอบล่าสุด":
-
         latest = get_latest_round()
-
         if latest is None:
             reply_text = "ยังไม่มีข้อมูล"
-
         else:
             reply_text = latest
 
     elif text.lower() == "/คิดเงิน":
-
-        user_sessions[user_id] = {
-            "step": "player_count"
-        }
-
+        user_sessions[user_id] = {"step": "player_count"}
         reply_text = (
             "🏸 วันนี้มีกี่คน?\n\n"
             "กรุณาพิมพ์เป็นตัวเลข\n"
@@ -313,11 +270,7 @@ def handle_message(event):
         )
 
     elif text.lower() == "/จ่ายเงิน":
-
-        user_sessions[user_id] = {
-            "step": "wait_for_payment"
-        }
-
+        user_sessions[user_id] = {"step": "wait_for_payment"}
         reply_text = (
             "💸 แจ้งโอนเงินตัดยอด\n"
             "━━━━━━━━━━━━\n"
@@ -330,21 +283,15 @@ def handle_message(event):
     # ==========================================
     # หมวดการทำงานใน Session (พิมพ์ปกติได้เลย)
     # ==========================================
-
     elif session.get("step") == "wait_for_payment":
-
         parts = text.split()
-
         if len(parts) == 4 and parts[1] in ["จ่าย", "โอน"]:
             payer = parts[0]
             payee = parts[2]
             amount_str = parts[3]
 
             if payer not in default_members or payee not in default_members:
-                reply_text = (
-                    "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
-                    "(พิมพ์ 0 เพื่อยกเลิก)"
-                )
+                reply_text = "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n(พิมพ์ 0 เพื่อยกเลิก)"
             else:
                 check_payer = "วี" if payer == "พร" else payer
                 check_payee = "วี" if payee == "พร" else payee
@@ -364,7 +311,6 @@ def handle_message(event):
                     session["payment_payee"] = payee
                     session["payment_amount"] = int(amount_str)
                     session["step"] = "confirm_payment"
-
                     reply_text = (
                         f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n\n"
                         "👉 พิมพ์ ok เพื่อยืนยัน\n"
@@ -379,12 +325,10 @@ def handle_message(event):
             )
 
     elif session.get("step") == "confirm_payment":
-
         if text.lower() == "ok":
             payer = session["payment_payer"]
             payee = session["payment_payee"]
             amount = session["payment_amount"]
-
             db_payer = "วี" if payer == "พร" else payer
             db_payee = "วี" if payee == "พร" else payee
 
@@ -406,33 +350,19 @@ def handle_message(event):
             except Exception as e:
                 reply_text = "❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"
                 user_sessions[user_id] = {}
-
         else:
             reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อยกเลิก"
 
-
     elif session.get("step") == "player_count":
-
         if not text.isdigit():
-
             reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
-
         else:
-
             count = int(text)
-
             if count <= 0 or count > 15:
-
-                reply_text = (
-                    "กรุณาเลือก 1-15 คน"
-                )
-
+                reply_text = "กรุณาเลือก 1-15 คน"
             else:
-
                 session["player_count"] = count
-
                 session["step"] = "choose_players"
-
                 reply_text = (
                     "👥 เลือกผู้เล่น\n\n"
                     f"{build_player_list(default_members)}\n\n"
@@ -448,37 +378,29 @@ def handle_message(event):
 
             for n in numbers:
                 val = n.upper()
-                
                 if val.startswith("G"):
                     if val not in allowed_guests:
                         raise Exception("guest_error")
                     if val in selected_players:
                         raise Exception("duplicate_error")
                     selected_players.append(val)
-                    
                 elif n.isdigit():
                     i = int(n)
                     if i < 1 or i > len(default_members):
                         raise Exception("index_error")
-                    
                     member_name = default_members[i - 1]
                     if member_name in selected_players:
                         raise Exception("duplicate_error")
                     selected_players.append(member_name)
-                    
                 else:
                     raise Exception("format_error")
 
             if len(selected_players) != session["player_count"]:
-                reply_text = (
-                    f"กรุณาเลือกให้ครบ {session['player_count']} คน "
-                    f"(คุณระบุมา {len(selected_players)} คน)"
-                )
+                reply_text = f"กรุณาเลือกให้ครบ {session['player_count']} คน (คุณระบุมา {len(selected_players)} คน)"
             else:
                 session["players"] = selected_players
                 session["step"] = "court_cost"
                 reply_text = "🏸 ค่าคอร์ท (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
-
         except Exception as e:
             err = str(e)
             if err == "duplicate_error":
@@ -495,123 +417,98 @@ def handle_message(event):
                 "(พิมพ์ 0 เพื่อยกเลิก)"
             )
 
+    # ปรับ Flow: ค่าคอร์ท -> คนจ่ายคอร์ท -> ค่าลูก -> คนจ่ายลูก
     elif session.get("step") == "court_cost":
-
         if not text.isdigit():
-
             reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
-
         else:
-
             session["court_cost"] = int(text)
-
-            session["step"] = "shuttle_cost"
-
-            reply_text = "🎾 ค่าลูก (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
-
-    elif session.get("step") == "shuttle_cost":
-
-        if not text.isdigit():
-
-            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
-
-        else:
-
-            session["shuttle_cost"] = int(text)
-
-            players = session["players"]
-
             session["step"] = "court_payer"
-
             reply_text = (
                 "💳 ใครจ่ายค่าคอร์ท?\n\n"
-                f"{build_player_list(players)}\n\n"
+                f"{build_player_list(session['players'])}\n\n"
                 "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
             )
 
     elif session.get("step") == "court_payer":
-
         if not text.isdigit():
-
-            reply_text = (
-                "กรุณาเลือกเลขให้ถูกต้อง\n\n"
-                f"{build_player_list(session['players'])}"
-            )
-
+            reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(session['players'])}"
         else:
-
             index = int(text)
-
             players = session["players"]
-
             if index < 1 or index > len(players):
-
-                reply_text = (
-                    "กรุณาเลือกเลขให้ถูกต้อง\n\n"
-                    f"{build_player_list(players)}"
-                )
-
+                reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(players)}"
             else:
-
                 session["court_payer"] = players[index - 1]
+                session["step"] = "shuttle_cost"
+                reply_text = "🎾 ค่าลูก (บาท)\n(พิมพ์ 0 เพื่อยกเลิก)"
 
-                session["step"] = "shuttle_payer"
-
-                reply_text = (
-                    "💳 ใครจ่ายค่าลูก?\n\n"
-                    f"{build_player_list(players)}\n\n"
-                    "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
-                )
+    elif session.get("step") == "shuttle_cost":
+        if not text.isdigit():
+            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ 0 เพื่อยกเลิก)"
+        else:
+            session["shuttle_cost"] = int(text)
+            players = session["players"]
+            session["step"] = "shuttle_payer"
+            reply_text = (
+                "💳 ใครจ่ายค่าลูก?\n\n"
+                f"{build_player_list(players)}\n\n"
+                "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
+            )
 
     elif session.get("step") == "shuttle_payer":
-
         if not text.isdigit():
-
-            reply_text = (
-                "กรุณาเลือกเลขให้ถูกต้อง\n\n"
-                f"{build_player_list(session['players'])}"
-            )
-
+            reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(session['players'])}"
         else:
-
             index = int(text)
-
             players = session["players"]
-
             if index < 1 or index > len(players):
-
-                reply_text = (
-                    "กรุณาเลือกเลขให้ถูกต้อง\n\n"
-                    f"{build_player_list(players)}"
-                )
-
+                reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(players)}"
             else:
-
                 session["shuttle_payer"] = players[index - 1]
+                
+                # Check ว่ารอบนี้มี Guest (G1-G5) เล่นด้วยไหม
+                has_guest = any(p.startswith("G") for p in players)
+                if has_guest:
+                    session["step"] = "guest_collector"
+                    reply_text = (
+                        "🙋‍♂️ ขาจร (Guest) จ่ายเงินให้ใคร?\n\n"
+                        f"{build_player_list(players)}\n\n"
+                        "(พิมพ์เลขเพื่อเลือก / พิมพ์ 0 ยกเลิก)"
+                    )
+                else:
+                    session["step"] = "comment"
+                    reply_text = "📝 หมายเหตุ\n\nถ้าไม่มี พิมพ์ -\n(พิมพ์ 0 เพื่อยกเลิก)"
 
-                session["step"] = "comment"
-
-                reply_text = (
-                    "📝 หมายเหตุ\n\n"
-                    "ถ้าไม่มี พิมพ์ -\n"
-                    "(พิมพ์ 0 เพื่อยกเลิก)"
-                )
+    elif session.get("step") == "guest_collector":
+        if not text.isdigit():
+            reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(session['players'])}"
+        else:
+            index = int(text)
+            players = session["players"]
+            if index < 1 or index > len(players):
+                reply_text = f"กรุณาเลือกเลขให้ถูกต้อง\n\n{build_player_list(players)}"
+            else:
+                selected = players[index - 1]
+                if selected.startswith("G"):
+                    reply_text = (
+                        "⚠️ ขาจรเก็บเงินเข้าตัวเองไม่ได้ครับ กรุณาเลือกสมาชิกหลัก\n\n"
+                        f"{build_player_list(players)}"
+                    )
+                else:
+                    session["guest_collector"] = selected
+                    session["step"] = "comment"
+                    reply_text = "📝 หมายเหตุ\n\nถ้าไม่มี พิมพ์ -\n(พิมพ์ 0 เพื่อยกเลิก)"
 
     elif session.get("step") == "comment":
-
         session["comment"] = text
-
-        total = (
-            session["court_cost"] +
-            session["shuttle_cost"]
-        )
-
+        total = session["court_cost"] + session["shuttle_cost"]
         share = total // len(session["players"])
 
         summary = (
             "🏸 กรุณาตรวจสอบข้อมูล\n"
             "━━━━━━━━━━━━\n\n"
-            f"👥 ผู้เล่น({len(session['players'])}คน)\n"
+            f"👥 ผู้เล่น ({len(session['players'])} คน)\n"
             f"{' • '.join(session['players'])}\n\n"
             "💸 ค่าใช้จ่าย\n"
             f"• ค่าคอร์ท: {session['court_cost']} บาท\n"
@@ -620,20 +517,23 @@ def handle_message(event):
             f"• เฉลี่ยคนละ: {share} บาท\n\n"
             "💳 คนออกเงินก่อน\n"
             f"• ค่าคอร์ท: {session['court_payer']}\n"
-            f"• ค่าลูก: {session['shuttle_payer']}\n\n"
-            f"📝 หมายเหตุ: {session['comment']}\n\n"
+            f"• ค่าลูก: {session['shuttle_payer']}\n"
+        )
+        
+        if "guest_collector" in session:
+            summary += f"• รับเงินขาจร: {session['guest_collector']}\n"
+
+        summary += (
+            f"\n📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
             "❌ พิมพ์ 0 เพื่อยกเลิก"
         )
 
         session["step"] = "confirm"
-
         reply_text = summary
 
     elif session.get("step") == "confirm":
-
         if text.lower() == "ok":
-
             players = session["players"]
             court_cost = session["court_cost"]
             shuttle_cost = session["shuttle_cost"]
@@ -646,18 +546,27 @@ def handle_message(event):
             result_lines = []
             round_result = {}
 
+            # คำนวณยอดดิบเบื้องต้น
             for player in players:
                 amount = -share
-
                 if player == court_payer:
                     amount += court_cost
-
                 if player == shuttle_payer:
                     amount += shuttle_cost
-
                 round_result[player] = amount
-                sign = "+" if amount >= 0 else ""
-                result_lines.append(f"{player}: {sign}{amount} บาท")
+
+            # ถ้ารอบนี้มีการเก็บเงินขาจร (Guest Debt Transfer)
+            if "guest_collector" in session:
+                guest_debt = 0
+                collector = session["guest_collector"]
+                
+                # รวมยอดหนี้ของขาจรทั้งหมด
+                for p, amt in round_result.items():
+                    if p.startswith("G"):
+                        guest_debt += amt
+                
+                # โยนหนี้ก้อนนี้ไปให้คนที่รับเงินสดมา (ยอดติดลบของคนนั้นจะเพิ่มขึ้นตามเงินสดที่ถือไว้)
+                round_result[collector] += guest_debt
 
             try:
                 save_round_with_balances(
@@ -674,12 +583,7 @@ def handle_message(event):
 
             except Exception:
                 app.logger.exception("Failed to save badminton round")
-
-                reply_text = (
-                    "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\n"
-                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ 0 เพื่อยกเลิก"
-                )
-
+                reply_text = "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\nลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ 0 เพื่อยกเลิก"
                 with ApiClient(configuration) as api_client:
                     line_bot_api = MessagingApi(api_client)
                     line_bot_api.reply_message(
@@ -692,6 +596,11 @@ def handle_message(event):
 
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
             latest_round_text = build_round_result_text(round_result)
+            
+            # เพิ่มข้อความอธิบายให้เพื่อนในกลุ่มเข้าใจง่ายขึ้น
+            if "guest_collector" in session:
+                latest_round_text += f"\n\n*(ยอดของ {session['guest_collector']} ได้รวมการรับเงินสดจากขาจรแล้ว)*"
+
             balance_text = build_balance_text(balances)
             debt_text = build_debt_minimization_text(balances)
 
@@ -712,11 +621,8 @@ def handle_message(event):
             reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ 0 เพื่อยกเลิก"
 
     else:
-
-        # ถ้าไม่ใช่คำสั่งของบอท และไม่ได้ค้าง session อะไรอยู่ ให้จบการทำงานเงียบๆ ไม่ต้องตอบอะไร
         return "OK", 200
 
-    # ===== Safety Guard ป้องกันบอทส่งข้อความว่าง =====
     if reply_text:
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
