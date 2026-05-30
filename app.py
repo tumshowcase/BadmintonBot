@@ -564,9 +564,8 @@ def handle_message(event):
 
     else:
 
-        reply_text = (
-            "พิมพ์ 'คำสั่ง' เพื่อดูเมนู"
-        )
+        # ถ้าไม่ใช่คำสั่งของบอท และไม่ได้ค้าง session อะไรอยู่ ให้จบการทำงานเงียบๆ ไม่ต้องตอบอะไร
+        return "OK", 200
 
     with ApiClient(configuration) as api_client:
 
