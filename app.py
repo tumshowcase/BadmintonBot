@@ -122,7 +122,6 @@ def build_debt_minimization_text(balances):
 
     if v_porn_balance != 0:
         if v_porn_balance < 0:
-            # ใช้ชื่อแสดงผลเป็น "วี & พร" ให้สวยงามในหน้าแนะนำจ่าย
             debtors["วี & พร"] = -v_porn_balance
         else:
             creditors["วี & พร"] = v_porn_balance
@@ -137,7 +136,6 @@ def build_debt_minimization_text(balances):
 
         transfer_amount = min(debtor_amount, creditor_amount)
 
-        # จัดฟอร์แมตข้อความให้สวยงาม
         transactions.append(f"💸 {debtor_name}  ➡️  {creditor_name} : {transfer_amount} บาท")
 
         debtor_amount -= transfer_amount
@@ -194,31 +192,36 @@ def handle_message(event):
 
     session = user_sessions[user_id]
 
-    if text.lower() == "คำสั่ง":
+    # ==========================================
+    # หมวดคำสั่งหลัก (ต้องมี / นำหน้า)
+    # ==========================================
+
+    if text.lower() == "/คำสั่ง":
 
         reply_text = (
-            "คำสั่ง\n\n"
-            "คิดเงิน\n"
-            "ยอดสะสม\n"
-            "รอบล่าสุด\n"
-            "แนะนำจ่าย\n"
-            "reset\n"
-            "reset balance"
+            "รายการคำสั่ง\n\n"
+            "/คิดเงิน\n"
+            "/จ่ายเงิน\n"
+            "/ยอดสะสม\n"
+            "/แนะนำจ่าย\n"
+            "/รอบล่าสุด\n"
+            "/ยกเลิก\n"
+            "/reset balance"
         )
 
-    elif text.lower() == "no" or text.lower() == "reset":
+    elif text.lower() in ["/ยกเลิก", "/no"]:
 
         user_sessions[user_id] = {}
 
-        reply_text = "ล้าง flow ปัจจุบันแล้ว"
+        reply_text = "ยกเลิกรายการเรียบร้อยแล้ว"
 
-    elif text.lower() == "reset balance":
+    elif text.lower() == "/reset balance":
 
         reset_all_balances()
 
         reply_text = "ล้างยอดสะสมทั้งหมดแล้ว"
 
-    elif text.lower() == "ยอดสะสม":
+    elif text.lower() == "/ยอดสะสม":
 
         balances = get_all_balances()
         balance_text = build_balance_text(balances)
@@ -229,11 +232,11 @@ def handle_message(event):
             f"{balance_text}"
         )
 
-    elif text.lower() == "แนะนำจ่าย":
+    elif text.lower() == "/แนะนำจ่าย":
 
         reply_text = build_debt_minimization_text(get_all_balances())
 
-    elif text.lower() == "รอบล่าสุด":
+    elif text.lower() == "/รอบล่าสุด":
 
         latest = get_latest_round()
 
@@ -243,7 +246,7 @@ def handle_message(event):
         else:
             reply_text = latest
 
-    elif text.lower() == "คิดเงิน":
+    elif text.lower() == "/คิดเงิน":
 
         user_sessions[user_id] = {
             "step": "player_count"
@@ -251,10 +254,11 @@ def handle_message(event):
 
         reply_text = (
             "🏸 วันนี้มีกี่คน?\n\n"
-            "กรุณาพิมพ์เป็นตัวเลข"
+            "กรุณาพิมพ์เป็นตัวเลข\n"
+            "(พิมพ์ /ยกเลิก เพื่อออก)"
         )
 
-    elif text.lower() == "จ่ายเงิน":
+    elif text.lower() == "/จ่ายเงิน":
 
         user_sessions[user_id] = {
             "step": "wait_for_payment"
@@ -262,9 +266,13 @@ def handle_message(event):
 
         reply_text = (
             "พิมพ์รูปแบบ: [ใคร] จ่าย [ใคร] [เท่าไร]\n"
-            "เช่น: วี จ่าย ตั้ม 100\n"
-            "(พิมพ์ no เพื่อยกเลิก)"
+            "เช่น: วี จ่าย ตั้ม 100\n\n"
+            "(พิมพ์ /ยกเลิก เพื่อออก)"
         )
+
+    # ==========================================
+    # หมวดการทำงานใน Session (พิมพ์ปกติได้เลย)
+    # ==========================================
 
     elif session.get("step") == "wait_for_payment":
 
@@ -278,22 +286,22 @@ def handle_message(event):
             if payer not in default_members or payee not in default_members:
                 reply_text = (
                     "❌ ชื่อไม่ถูกต้อง กรุณาใช้ชื่อ: ตั้ม, วี, พร, อ๊ะ, หนุ่ม\n"
-                    "(พิมพ์ no เพื่อยกเลิก)"
+                    "(พิมพ์ /ยกเลิก เพื่อออก)"
                 )
             else:
                 check_payer = "วี" if payer == "พร" else payer
                 check_payee = "วี" if payee == "พร" else payee
 
                 if payer == payee:
-                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ no เพื่อยกเลิก)"
+                    reply_text = "⚠️ ไม่สามารถโอนเงินให้ตัวเองได้ครับ\n(พิมพ์ /ยกเลิก เพื่อออก)"
                 elif check_payer == check_payee:
                     reply_text = (
                         "⚠️ รายการนี้ไม่มีผลต่อยอดสะสม\n\n"
                         "เนื่องจาก วี และ พร ถูกนับเป็นครอบครัวเดียวกัน\n"
-                        "(พิมพ์ no เพื่อยกเลิก)"
+                        "(พิมพ์ /ยกเลิก เพื่อออก)"
                     )
                 elif not amount_str.isdigit() or int(amount_str) <= 0:
-                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ no เพื่อยกเลิก)"
+                    reply_text = "⚠️ จำนวนเงินต้องเป็นตัวเลขที่มากกว่า 0 เท่านั้น\n(พิมพ์ /ยกเลิก เพื่อออก)"
                 else:
                     session["payment_payer"] = payer
                     session["payment_payee"] = payee
@@ -301,14 +309,15 @@ def handle_message(event):
                     session["step"] = "confirm_payment"
 
                     reply_text = (
-                        f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n"
-                        "(พิมพ์ ok เพื่อยืนยัน / พิมพ์ no เพื่อยกเลิก)"
+                        f"❓ {payer} จ่ายให้ {payee} {amount_str} บาท\n\n"
+                        "👉 พิมพ์ ok เพื่อยืนยัน\n"
+                        "👉 พิมพ์ /ยกเลิก เพื่อออก"
                     )
         else:
             reply_text = (
                 "⚠️ รูปแบบไม่ถูกต้อง กรุณาพิมพ์ใหม่\n"
                 "เช่น: วี จ่าย ตั้ม 100\n"
-                "(พิมพ์ no เพื่อยกเลิก)"
+                "(พิมพ์ /ยกเลิก เพื่อออก)"
             )
 
     elif session.get("step") == "confirm_payment":
@@ -318,7 +327,6 @@ def handle_message(event):
             payee = session["payment_payee"]
             amount = session["payment_amount"]
 
-            # ระบบแปลงชื่อ พร เป็น วี อัตโนมัติเวลาบันทึกยอด
             db_payer = "วี" if payer == "พร" else payer
             db_payee = "วี" if payee == "พร" else payee
 
@@ -339,17 +347,15 @@ def handle_message(event):
                 reply_text = "❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"
                 user_sessions[user_id] = {}
 
-        elif text.lower() == "no":
-            user_sessions[user_id] = {}
-            reply_text = "ยกเลิกรายการแล้ว"
         else:
-            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือ no เพื่อยกเลิก"
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ /ยกเลิก เพื่อออก"
+
 
     elif session.get("step") == "player_count":
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น"
+            reply_text = "กรุณาพิมพ์เป็นตัวเลขเท่านั้น (หรือพิมพ์ /ยกเลิก)"
 
         else:
 
@@ -382,7 +388,6 @@ def handle_message(event):
             for n in numbers:
                 val = n.upper()
                 
-                # 1. เช็กว่าเป็นขาจร (G) ไหม
                 if val.startswith("G"):
                     if val not in allowed_guests:
                         raise Exception("guest_error")
@@ -390,7 +395,6 @@ def handle_message(event):
                         raise Exception("duplicate_error")
                     selected_players.append(val)
                     
-                # 2. เช็กว่าเป็นตัวเลขสมาชิกหลักไหม
                 elif n.isdigit():
                     i = int(n)
                     if i < 1 or i > len(default_members):
@@ -433,7 +437,7 @@ def handle_message(event):
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น"
+            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ /ยกเลิก)"
 
         else:
 
@@ -447,7 +451,7 @@ def handle_message(event):
 
         if not text.isdigit():
 
-            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น"
+            reply_text = "กรุณาพิมพ์จำนวนเงินเท่านั้น (หรือพิมพ์ /ยกเลิก)"
 
         else:
 
@@ -554,7 +558,7 @@ def handle_message(event):
             f"• ค่าลูก: {session['shuttle_payer']}\n\n"
             f"📝 หมายเหตุ: {session['comment']}\n\n"
             "✅ พิมพ์ ok เพื่อบันทึก\n"
-            "↩️ พิมพ์ no เพื่อยกเลิก"
+            "↩️ พิมพ์ /ยกเลิก เพื่อออก"
         )
 
         session["step"] = "confirm"
@@ -563,37 +567,21 @@ def handle_message(event):
 
     elif session.get("step") == "confirm":
 
-        if text.lower() != "ok":
-
-            reply_text = (
-                "พิมพ์ ok เพื่อยืนยัน\n"
-                "หรือ no เพื่อยกเลิก"
-            )
-
-        else:
+        if text.lower() == "ok":
 
             players = session["players"]
-
             court_cost = session["court_cost"]
-
             shuttle_cost = session["shuttle_cost"]
-
             court_payer = session["court_payer"]
-
             shuttle_payer = session["shuttle_payer"]
-
             comment = session["comment"]
-
             total = court_cost + shuttle_cost
-
             share = total // len(players)
 
             result_lines = []
-
             round_result = {}
 
             for player in players:
-
                 amount = -share
 
                 if player == court_payer:
@@ -603,12 +591,8 @@ def handle_message(event):
                     amount += shuttle_cost
 
                 round_result[player] = amount
-
                 sign = "+" if amount >= 0 else ""
-
-                result_lines.append(
-                    f"{player}: {sign}{amount} บาท"
-                )
+                result_lines.append(f"{player}: {sign}{amount} บาท")
 
             try:
                 save_round_with_balances(
@@ -621,7 +605,6 @@ def handle_message(event):
                     round_result,
                     comment
                 )
-
                 balances = get_all_balances()
 
             except Exception:
@@ -629,26 +612,21 @@ def handle_message(event):
 
                 reply_text = (
                     "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\n"
-                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ no เพื่อยกเลิก"
+                    "ลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ /ยกเลิก เพื่อออก"
                 )
 
                 with ApiClient(configuration) as api_client:
-
                     line_bot_api = MessagingApi(api_client)
-
                     line_bot_api.reply_message(
                         ReplyMessageRequest(
                             reply_token=event.reply_token,
                             messages=[TextMessage(text=reply_text)]
                         )
                     )
-
                 return
 
             now = thailand_time().strftime("%d/%m/%Y %H:%M")
-
             latest_round_text = build_round_result_text(round_result)
-
             balance_text = build_balance_text(balances)
 
             reply_text = (
@@ -662,6 +640,9 @@ def handle_message(event):
                 f"{balance_text}"
             )
             user_sessions[user_id] = {}
+
+        else:
+            reply_text = "⚠️ พิมพ์ ok เพื่อยืนยัน หรือพิมพ์ /ยกเลิก เพื่อออก"
 
     else:
 
