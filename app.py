@@ -232,7 +232,8 @@ def handle_message(event):
         step = session.get("step")
         if step or text.lower() in ["/cancel", "/ยกเลิก", "/ออก"]:
             user_sessions[user_id] = {}
-            if step == "waiting_menu_choice":
+            # รวมการกดออกของหน้าเมนูหลัก และเมนูประวัติย้อนหลังให้ใช้ข้อความบอกลาสวยๆ
+            if step in ["waiting_menu_choice", "waiting_history_choice", "viewing_history_detail"]:
                 reply_text = (
                     "🔴 ออกจากเมนูเรียบร้อย\n"
                     "ไว้เจอกันใหม่รอบหน้าครับ Bye! 👋🏸"
@@ -336,7 +337,6 @@ def handle_message(event):
             
     elif session.get("step") == "viewing_history_detail":
         if text == "9":
-            # จำลองการกดคำสั่ง /ประวัติย้อนหลัง อีกครั้งเพื่อกลับหน้าหลัก
             recent_rounds = get_recent_rounds(5)
             session["step"] = "waiting_history_choice"
             session["recent_rounds"] = recent_rounds
