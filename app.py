@@ -218,7 +218,6 @@ def handle_message(event):
     if text == "0" and session.get("step"):
         text = "/cancel"
 
-
     # ==========================================
     # หมวดคำสั่งหลัก
     # ==========================================
@@ -699,13 +698,12 @@ def handle_message(event):
 
             except Exception:
                 app.logger.exception("Failed to save badminton round")
-                reply_text = "บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\nลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ 0 เพื่อยกเลิก"
                 with ApiClient(configuration) as api_client:
                     line_bot_api = MessagingApi(api_client)
                     line_bot_api.reply_message(
                         ReplyMessageRequest(
                             reply_token=event.reply_token,
-                            messages=[TextMessage(text=reply_text)]
+                            messages=[TextMessage(text="บันทึกไม่สำเร็จครับ ฐานข้อมูลมีปัญหาตอนบันทึกรอบ\n\nลองพิมพ์ ok อีกครั้งได้เลย หรือพิมพ์ 0 เพื่อยกเลิก")]
                         )
                     )
                 return
@@ -752,4 +750,5 @@ def handle_message(event):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # 🛠️ ปรับแก้บรรทัดนี้เพื่อรองรับ Dynamic Port บน Render ป้องกันปัญหา Port scan timeout
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
